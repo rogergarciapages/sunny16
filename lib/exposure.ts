@@ -56,11 +56,12 @@ export function recommend(iso: number, condition: Condition, camera: Camera, len
   const ideal = { shutter: 1 / iso, aperture: condition.baseAperture };
   const pool = good.length ? good : perShutter;
   // Prefer exact exposure, then the shutter closest to 1/ISO (the classic rule).
+  const close = pool.filter((x) => Math.abs(x.errorStops) <= 0.34);
+  const shutterDist = (x: Setting) => Math.abs(log2(x.shutter * iso));
   const best =
-    [...pool].sort(
-      (a, b) =>
-        Math.abs(a.errorStops) - Math.abs(b.errorStops) ||
-        Math.abs(log2(a.shutter * iso)) - Math.abs(log2(b.shutter * iso)),
+    (close.length
+      ? [...close].sort((a, b) => shutterDist(a) - shutterDist(b) || Math.abs(a.errorStops) - Math.abs(b.errorStops))
+      : [...pool].sort((a, b) => Math.abs(a.errorStops) - Math.abs(b.errorStops) || shutterDist(a) - shutterDist(b))
     )[0] ?? null;
 
   const alternatives = good

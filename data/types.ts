@@ -16,6 +16,10 @@ export interface Lens {
   focalLength: number; // mm
   /** Marked aperture stops on the ring, widest first (e.g. [1.4, 2, 2.8, ...]). */
   apertures: number[];
+  /** Optional native brand id (used to prioritize brand-matched lenses on shared mounts like M42/K/M). */
+  brandId?: string;
+  /** If set, restricts this lens to specific camera model ids within the mount. */
+  compatibleCameraIds?: string[];
 }
 
 export interface Camera {

@@ -12,4 +12,6 @@ export const films: Film[] = [
   { iso: 800, label: 'ISO 800 / 30°' },
   { iso: 1600, label: 'ISO 1600 / 33°' },
   { iso: 3200, label: 'ISO 3200 / 36°' },
+  { iso: 6400, label: 'ISO 6400 / 39°' },
+  { iso: 12800, label: 'ISO 12800 / 42°' },
 ];
