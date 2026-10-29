@@ -8,7 +8,16 @@ import { brands } from './data/brands';
 import { cameras } from './data/cameras';
 import { lenses } from './data/lenses';
 import { films } from './data/films';
-import { conditions, recommend, formatShutter, formatAperture, formatError, Condition } from './lib/exposure';
+import {
+  conditions,
+  recommend,
+  formatShutter,
+  formatAperture,
+  formatError,
+  Condition,
+  lensFilters,
+  FilterId,
+} from './lib/exposure';
 import WeatherIcon from './components/WeatherIcon';
 
 const C = {
@@ -79,6 +88,8 @@ export default function App() {
   const [lensId, setLensId] = useState<string | undefined>();
   const lens = cameraLenses.find((l) => l.id === lensId) ?? cameraLenses[0];
   const [conditionId, setConditionId] = useState<Condition['id']>('sunny');
+  const [filterId, setFilterId] = useState<FilterId>('none');
+  const activeFilter = lensFilters.find((f) => f.id === filterId) ?? lensFilters[0];
 
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: C.paper }} />;
 
@@ -136,17 +147,25 @@ export default function App() {
             <View style={styles.tableWrap}>
               <View style={styles.tableHeader}>
                 <Text style={styles.tableHeaderText}>EXPOSURE TABLE</Text>
-                <View style={styles.isoBox}>
-                  <Text style={styles.isoBoxText}>ISO {iso}</Text>
+                <View style={styles.headerBadges}>
+                  {activeFilter.id !== 'none' && (
+                    <View style={[styles.isoBox, { backgroundColor: activeFilter.color }]}>
+                      <Text style={styles.isoBoxText}>{activeFilter.shortName} ({activeFilter.factor})</Text>
+                    </View>
+                  )}
+                  <View style={styles.isoBox}>
+                    <Text style={styles.isoBoxText}>ISO {iso}</Text>
+                  </View>
                 </View>
               </View>
               <Text style={styles.cameraLine}>
                 {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
+                {activeFilter.id !== 'none' ? ` · ${activeFilter.name}` : ''}
               </Text>
 
               <View style={[styles.grid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
                 {conditions.map((cond) => {
-                  const r = recommend(iso, cond, camera, lens);
+                  const r = recommend(iso, cond, camera, lens, activeFilter.stops);
                   const active = cond.id === conditionId;
                   return (
                     <Pressable
@@ -184,10 +203,16 @@ export default function App() {
 
   function Result({ iso, conditionId }: { iso: number; conditionId: Condition['id'] }) {
     const cond = conditions.find((c) => c.id === conditionId)!;
-    const r = recommend(iso, cond, camera!, lens!);
+    const r = recommend(iso, cond, camera!, lens!, activeFilter.stops);
+    const dofLabel = (aperture: number) =>
+      aperture <= 2.8 ? 'SHALLOW / BOKEH' : aperture <= 8 ? 'BALANCED DOF' : 'DEEP FOCUS';
+
     return (
       <View style={styles.result} nativeID="result-panel">
-        <Text style={styles.resultKicker}>RECOMMENDED SETTING · {cond.title.toUpperCase()}</Text>
+        <Text style={styles.resultKicker}>
+          RECOMMENDED SETTING · {cond.title.toUpperCase()}
+          {activeFilter.id !== 'none' ? ` · ${activeFilter.shortName} (${activeFilter.factor})` : ''}
+        </Text>
         {r.best ? (
           <>
             <View style={styles.bigRow}>
@@ -201,21 +226,131 @@ export default function App() {
               </View>
             </View>
             <Text style={styles.resultNote}>
-              Pure Sunny 16: {formatAperture(r.ideal.aperture)} @ 1/{iso}s · On your gear: {formatError(r.best.errorStops)}
+              Pure Sunny 16{activeFilter.stops > 0 ? ` (+${activeFilter.stops} EV filter)` : ''}:{' '}
+              {formatAperture(r.ideal.aperture)} @ 1/{iso}s · On your gear: {formatError(r.best.errorStops)}
             </Text>
             {r.alternatives.length > 0 && (
               <>
-                <Text style={styles.altTitle}>EQUIVALENT EXPOSURES</Text>
+                <Text style={styles.altTitle}>
+                  EQUIVALENT EXPOSURES {activeFilter.id !== 'none' ? `· WITH ${activeFilter.shortName}` : ''}
+                </Text>
+                <Text style={styles.altHint}>
+                  Same exposure — pick wider apertures (left) for creamy bokeh or smaller apertures (right) for deep focus:
+                </Text>
                 <View style={styles.altRow}>
                   {r.alternatives.map((a) => (
-                    <View key={a.shutter} style={styles.altChip}>
+                    <View
+                      key={a.shutter}
+                      style={[
+                        styles.altChip,
+                        a.aperture <= 2.8 && { borderColor: C.mustard, backgroundColor: '#2A231B' },
+                      ]}
+                    >
                       <Text style={styles.altText}>{formatAperture(a.aperture)}</Text>
                       <Text style={styles.altSub}>{formatShutter(a.shutter)}</Text>
+                      <Text style={[styles.altDof, a.aperture <= 2.8 && { color: C.mustard }]}>
+                        {dofLabel(a.aperture)}
+                      </Text>
                     </View>
                   ))}
                 </View>
               </>
             )}
+
+            {/* Filter Compensation & Equivalent Exposures Comparison */}
+            <View style={styles.filterSection}>
+              <Text style={styles.altTitle}>LENS FILTER COMPENSATION · UV / YELLOW / RED</Text>
+              <Text style={styles.altHint}>
+                Tap a filter below to apply it across the table, or compare how UV, Yellow (#8), and Red (#25) shift your exposure & bokeh options:
+              </Text>
+
+              <View style={styles.filterPillRow}>
+                {lensFilters.map((f) => {
+                  const isSelected = f.id === activeFilter.id;
+                  return (
+                    <Pressable
+                      key={f.id}
+                      nativeID={`filter-${f.id}`}
+                      onPress={() => setFilterId(f.id)}
+                      style={[
+                        styles.filterPill,
+                        isSelected && { backgroundColor: f.color, borderColor: f.color },
+                      ]}
+                    >
+                      <Text style={[styles.filterPillTitle, isSelected && { color: C.ink }]}>
+                        {f.shortName}
+                      </Text>
+                      <Text style={[styles.filterPillSub, isSelected && { color: C.brown }]}>
+                        {f.factor}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+                {lensFilters
+                  .filter((f) => f.id !== 'none')
+                  .map((f) => {
+                    const fr = recommend(iso, cond, camera!, lens!, f.stops);
+                    const allPairs = fr.best ? [fr.best, ...fr.alternatives] : [];
+                    const widest = [...allPairs].sort((a, b) => a.aperture - b.aperture)[0];
+                    const isSelected = f.id === activeFilter.id;
+                    return (
+                      <Pressable
+                        key={f.id}
+                        onPress={() => setFilterId(isSelected ? 'none' : f.id)}
+                        style={[
+                          styles.filterCard,
+                          wide && { width: '48.5%' },
+                          isSelected && { borderColor: f.color, borderWidth: 2 },
+                        ]}
+                      >
+                        <View style={styles.filterCardHead}>
+                          <View style={[styles.filterDot, { backgroundColor: f.color }]} />
+                          <Text style={styles.filterCardTitle}>{f.name}</Text>
+                          <View style={[styles.filterFactorBadge, { backgroundColor: f.color }]}>
+                            <Text style={styles.filterFactorText}>{f.factor}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.filterEffect}>{f.effect}</Text>
+                        {fr.best ? (
+                          <>
+                            <View style={styles.filterSummaryRow}>
+                              <Text style={styles.filterRecLabel}>
+                                Recommended:{' '}
+                                <Text style={styles.filterRecVal}>
+                                  {formatAperture(fr.best.aperture)} · {formatShutter(fr.best.shutter)}
+                                </Text>
+                              </Text>
+                              {widest && (
+                                <Text style={styles.filterBokehLabel}>
+                                  Max Bokeh:{' '}
+                                  <Text style={styles.filterBokehVal}>
+                                    {formatAperture(widest.aperture)} · {formatShutter(widest.shutter)}
+                                  </Text>
+                                </Text>
+                              )}
+                            </View>
+                            <View style={styles.filterEqRow}>
+                              {allPairs
+                                .sort((a, b) => a.aperture - b.aperture)
+                                .map((pair) => (
+                                  <View key={`${f.id}-${pair.shutter}`} style={styles.filterEqChip}>
+                                    <Text style={styles.filterEqAperture}>{formatAperture(pair.aperture)}</Text>
+                                    <Text style={styles.filterEqShutter}>{formatShutter(pair.shutter)}</Text>
+                                  </View>
+                                ))}
+                            </View>
+                          </>
+                        ) : (
+                          <Text style={styles.altHint}>Out of range for this camera/lens.</Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+              </View>
+            </View>
           </>
         ) : (
           <Text style={styles.body}>No usable combination on this camera/lens.</Text>
@@ -260,8 +395,9 @@ const styles = StyleSheet.create({
   chipSub: { fontFamily: type, fontSize: 10, color: C.brown },
 
   tableWrap: { marginTop: 28, borderWidth: 3, borderColor: C.ink },
-  tableHeader: { backgroundColor: C.teal, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10, borderBottomWidth: 3, borderColor: C.ink },
+  tableHeader: { backgroundColor: C.teal, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10, borderBottomWidth: 3, borderColor: C.ink, flexWrap: 'wrap', gap: 8 },
   tableHeaderText: { fontFamily: display, fontSize: 34, color: C.ink, letterSpacing: 3 },
+  headerBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   isoBox: { borderWidth: 2, borderColor: C.ink, backgroundColor: C.paper, paddingHorizontal: 10, paddingVertical: 2 },
   isoBoxText: { fontFamily: display, fontSize: 22, color: C.ink },
   cameraLine: { fontFamily: type, fontSize: 13, color: C.ink, padding: 10, borderBottomWidth: 2, borderColor: C.ink },
@@ -281,10 +417,35 @@ const styles = StyleSheet.create({
   bigValue: { fontFamily: display, fontSize: 64, lineHeight: 68, color: C.paper },
   resultNote: { fontFamily: type, fontSize: 13, color: C.paper, marginTop: 10 },
   altTitle: { fontFamily: display, fontSize: 20, color: C.mustard, marginTop: 14, letterSpacing: 2 },
+  altHint: { fontFamily: type, fontSize: 11, color: C.paperDark, marginTop: 2 },
   altRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  altChip: { borderWidth: 1, borderColor: C.paper, paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' },
+  altChip: { borderWidth: 1, borderColor: C.paper, paddingHorizontal: 10, paddingVertical: 5, alignItems: 'center', minWidth: 78 },
   altText: { fontFamily: display, fontSize: 20, color: C.paper },
   altSub: { fontFamily: type, fontSize: 11, color: C.paperDark },
+  altDof: { fontFamily: display, fontSize: 10, color: C.teal, letterSpacing: 0.8, marginTop: 2 },
+
+  filterSection: { marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderColor: '#4A4035' },
+  filterPillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  filterPill: { borderWidth: 1, borderColor: C.paperDark, paddingHorizontal: 10, paddingVertical: 5, alignItems: 'center', backgroundColor: '#2A231B' },
+  filterPillTitle: { fontFamily: display, fontSize: 16, color: C.paper, letterSpacing: 1 },
+  filterPillSub: { fontFamily: type, fontSize: 10, color: C.mustard },
+  filterGrid: { gap: 10, marginTop: 12 },
+  filterCard: { borderWidth: 1, borderColor: '#4A4035', backgroundColor: '#262019', padding: 10 },
+  filterCardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  filterDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1, borderColor: C.paper },
+  filterCardTitle: { fontFamily: display, fontSize: 18, color: C.paper, letterSpacing: 1, flex: 1 },
+  filterFactorBadge: { paddingHorizontal: 6, paddingVertical: 1, borderWidth: 1, borderColor: C.ink },
+  filterFactorText: { fontFamily: display, fontSize: 13, color: C.ink, letterSpacing: 0.5 },
+  filterEffect: { fontFamily: type, fontSize: 11, color: C.paperDark, marginTop: 4 },
+  filterSummaryRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderColor: '#3A3127' },
+  filterRecLabel: { fontFamily: type, fontSize: 11, color: C.paperDark },
+  filterRecVal: { fontFamily: display, fontSize: 15, color: C.paper, letterSpacing: 0.5 },
+  filterBokehLabel: { fontFamily: type, fontSize: 11, color: C.mustard },
+  filterBokehVal: { fontFamily: display, fontSize: 15, color: C.mustard, letterSpacing: 0.5 },
+  filterEqRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
+  filterEqChip: { borderWidth: 1, borderColor: '#4A4035', paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center', backgroundColor: C.ink },
+  filterEqAperture: { fontFamily: display, fontSize: 14, color: C.paper },
+  filterEqShutter: { fontFamily: type, fontSize: 9, color: C.paperDark },
 
   body: { fontFamily: type, fontSize: 13, color: C.ink },
   footer: { fontFamily: type, fontSize: 11, color: C.brown, textAlign: 'center', marginTop: 20 },
