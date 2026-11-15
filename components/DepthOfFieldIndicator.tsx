@@ -20,12 +20,12 @@ const display = 'BebasNeue_400Regular';
 const type = 'SpecialElite_400Regular';
 
 export const PRESET_DISTANCES = [
-  { label: '0.7m', sub: 'CLOSE · f/2', m: 0.7, targetAperture: 2 },
-  { label: '1.2m', sub: 'HEADSHOT · f/2.8', m: 1.2, targetAperture: 2.8 },
-  { label: '2.0m', sub: 'HALF BODY · f/4', m: 2.0, targetAperture: 4 },
-  { label: '3.0m', sub: 'STREET · f/8', m: 3.0, targetAperture: 8 },
-  { label: '5.0m', sub: 'GROUP · f/11', m: 5.0, targetAperture: 11 },
-  { label: '10m', sub: 'VISTA · f/16', m: 10.0, targetAperture: 16 },
+  { label: '0.7m', role: 'CLOSE', m: 0.7, targetAperture: 2 },
+  { label: '1.2m', role: 'HEADSHOT', m: 1.2, targetAperture: 2.8 },
+  { label: '2.0m', role: 'HALF BODY', m: 2.0, targetAperture: 4 },
+  { label: '3.0m', role: 'STREET', m: 3.0, targetAperture: 8 },
+  { label: '5.0m', role: 'GROUP', m: 5.0, targetAperture: 11 },
+  { label: '10m', role: 'VISTA', m: 10.0, targetAperture: 16 },
 ];
 
 function formatDist(m: number): string {
@@ -114,12 +114,34 @@ export default function DepthOfFieldIndicator({
   onSelectDistance: (distanceM: number, targetAperture: number) => void;
   onSelectHyperfocal: (targetAperture: number) => void;
 }) {
+  const sortedValidPairs = [...allExposurePairs].sort((a, b) => a.aperture - b.aperture);
+  const widestValidAp = sortedValidPairs[0]?.aperture;
+  const narrowestValidAp = sortedValidPairs[sortedValidPairs.length - 1]?.aperture;
+  const fastestCameraShutter = Math.min(...camera.shutterSpeeds);
+
+  const resolveValidPair = (targetAp: number): Setting | undefined => {
+    if (sortedValidPairs.length === 0) return undefined;
+    return [...sortedValidPairs].sort(
+      (a, b) =>
+        Math.abs(Math.log2(a.aperture / targetAp)) - Math.abs(Math.log2(b.aperture / targetAp)) ||
+        Math.abs(a.errorStops) - Math.abs(b.errorStops),
+    )[0];
+  };
+
+  // Ensure the active aperture is always one of the apertures possible in this light condition
+  const activePair =
+    sortedValidPairs.find((p) => p.aperture === selectedAperture) ??
+    resolveValidPair(selectedAperture);
+  const effectiveAperture = activePair?.aperture ?? selectedAperture;
+  const hyperfocalPair = resolveValidPair(11);
+  const hyperfocalTargetAp = hyperfocalPair?.aperture ?? effectiveAperture;
+
   // Compute hyperfocal first so Hyperfocal mode can lock onto it
-  const baseDof = calculateDof(camera, lens, selectedAperture, distanceM);
+  const baseDof = calculateDof(camera, lens, effectiveAperture, distanceM);
   const effectiveDistanceM = isHyperfocalMode
     ? Number(Math.max(0.5, baseDof.hyperfocalM).toFixed(2))
     : distanceM;
-  const dof = calculateDof(camera, lens, selectedAperture, effectiveDistanceM);
+  const dof = calculateDof(camera, lens, effectiveAperture, effectiveDistanceM);
 
   // Determine ruler max scale in meters (like the 0..5..10..12m ruler in the concept screenshot)
   const rawMax =
@@ -156,8 +178,9 @@ export default function DepthOfFieldIndicator({
     ? Math.max(8, Math.min(34, Math.round(6 + dof.bokehRatio * 2.2)))
     : 6;
 
-  // Matching shutter speed if this aperture is in the current exposure pairs
-  const matchingPair = allExposurePairs.find((p) => p.aperture === selectedAperture);
+  const unavailableLensStops = lens.apertures.filter(
+    (ap) => !sortedValidPairs.some((p) => p.aperture === ap),
+  );
 
   return (
     <View style={styles.container} nativeID="dof-indicator">
@@ -171,8 +194,8 @@ export default function DepthOfFieldIndicator({
         </View>
         <View style={styles.lensBadge}>
           <Text style={styles.lensBadgeText}>
-            {lens.focalLength}mm · {formatAperture(selectedAperture)}
-            {matchingPair ? ` · ${formatShutter(matchingPair.shutter)}` : ''}
+            {lens.focalLength}mm · {formatAperture(effectiveAperture)}
+            {activePair ? ` · ${formatShutter(activePair.shutter)}` : ''}
           </Text>
         </View>
       </View>
@@ -203,41 +226,55 @@ export default function DepthOfFieldIndicator({
       <View style={styles.controlsWrap}>
         <View style={styles.controlGroup}>
           <Text style={styles.controlLabel}>
-            SUBJECT FOCUS DISTANCE (TAP TO UPDATE RECOMMENDED EXPOSURE & DOF):
+            SUBJECT FOCUS DISTANCE (CONDITIONED BY LIGHT — TAP TO UPDATE EXPOSURE & DOF):
           </Text>
           <View style={styles.pillRow}>
             {PRESET_DISTANCES.map((d) => {
               const active = !isHyperfocalMode && Math.abs(distanceM - d.m) < 0.05;
+              const validPairForDist = resolveValidPair(d.targetAperture);
+              const resolvedAp = validPairForDist?.aperture ?? d.targetAperture;
               return (
                 <Pressable
                   key={d.label}
                   nativeID={`dof-dist-${d.m}`}
-                  onPress={() => onSelectDistance(d.m, d.targetAperture)}
+                  onPress={() => onSelectDistance(d.m, resolvedAp)}
                   style={[styles.distPill, active && styles.distPillActive]}
                 >
                   <Text style={[styles.distPillText, active && { color: C.ink }]}>{d.label}</Text>
-                  <Text style={[styles.distPillSub, active && { color: C.brown }]}>{d.sub}</Text>
+                  <Text style={[styles.distPillSub, active && { color: C.brown }]}>
+                    {d.role} · {formatAperture(resolvedAp)}
+                  </Text>
+                  {validPairForDist && (
+                    <Text style={[styles.distPillShutter, active && { color: C.ink }]}>
+                      {formatShutter(validPairForDist.shutter)}
+                    </Text>
+                  )}
                 </Pressable>
               );
             })}
             <Pressable
               nativeID="dof-dist-hyperfocal"
-              onPress={() => onSelectHyperfocal(11)}
+              onPress={() => onSelectHyperfocal(hyperfocalTargetAp)}
               style={[styles.distPill, isHyperfocalMode && styles.distPillHyperfocal]}
             >
               <Text style={[styles.distPillText, isHyperfocalMode && { color: C.paper }]}>
                 H = {formatDist(baseDof.hyperfocalM)}
               </Text>
               <Text style={[styles.distPillSub, isHyperfocalMode && { color: C.paperDark }]}>
-                HYPERFOCAL · f/11
+                HYPERFOCAL · {formatAperture(hyperfocalTargetAp)}
               </Text>
+              {hyperfocalPair && (
+                <Text style={[styles.distPillShutter, isHyperfocalMode && { color: C.paper }]}>
+                  {formatShutter(hyperfocalPair.shutter)}
+                </Text>
+              )}
             </Pressable>
           </View>
         </View>
 
         <View style={[styles.controlGroup, { marginTop: 8 }]}>
           <Text style={styles.controlLabel}>
-            APERTURE RING STOP (TAP TO LOCK APERTURE ACROSS EXPOSURE TABLE):
+            APERTURES POSSIBLE IN THIS LIGHT (UNAVAILABLE LENS STOPS ARE LOCKED OUT):
           </Text>
           <View style={styles.pillRow}>
             <Pressable
@@ -249,15 +286,24 @@ export default function DepthOfFieldIndicator({
               <Text style={[styles.apPillSub, !hasApertureLock && { color: C.brown }]}>1/ISO</Text>
             </Pressable>
             {lens.apertures.map((ap) => {
-              const isSelected = ap === selectedAperture;
-              const pair = allExposurePairs.find((p) => p.aperture === ap);
+              const pair = sortedValidPairs.find((p) => p.aperture === ap);
+              const isPossible = pair !== undefined;
+              const isSelected = isPossible && ap === effectiveAperture;
+              const limitLabel =
+                widestValidAp !== undefined && ap < widestValidAp
+                  ? `>${formatShutter(fastestCameraShutter)}`
+                  : 'OUT EV';
               return (
                 <Pressable
                   key={ap}
                   nativeID={`dof-ap-${ap}`}
-                  onPress={() => onSelectAperture(ap)}
+                  disabled={!isPossible}
+                  onPress={() => {
+                    if (isPossible) onSelectAperture(ap);
+                  }}
                   style={[
                     styles.apPill,
+                    !isPossible && styles.apPillDisabled,
                     isSelected && hasApertureLock && styles.apPillActive,
                     isSelected && !hasApertureLock && { borderColor: C.mustard, borderWidth: 1.5 },
                   ]}
@@ -265,6 +311,7 @@ export default function DepthOfFieldIndicator({
                   <Text
                     style={[
                       styles.apPillText,
+                      !isPossible && styles.apPillTextDisabled,
                       isSelected && hasApertureLock && { color: C.ink },
                     ]}
                   >
@@ -273,15 +320,28 @@ export default function DepthOfFieldIndicator({
                   <Text
                     style={[
                       styles.apPillSub,
+                      !isPossible && styles.apPillSubDisabled,
                       isSelected && hasApertureLock && { color: C.brown },
                     ]}
                   >
-                    {pair ? formatShutter(pair.shutter) : 'RING'}
+                    {pair ? formatShutter(pair.shutter) : limitLabel}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+          {unavailableLensStops.length > 0 && widestValidAp !== undefined && narrowestValidAp !== undefined && (
+            <Text style={styles.lightLimitNote}>
+              Light limit: Only{' '}
+              <Text style={{ color: C.mustard }}>
+                {widestValidAp === narrowestValidAp
+                  ? formatAperture(widestValidAp)
+                  : `${formatAperture(widestValidAp)} – ${formatAperture(narrowestValidAp)}`}
+              </Text>{' '}
+              can be properly exposed in this light with your camera shutter range (max{' '}
+              {formatShutter(fastestCameraShutter)}). Wider stops ({unavailableLensStops.map(formatAperture).join(', ')}) are locked out to prevent overexposure — add a Yellow/Red filter or lower ISO to use wider bokeh stops.
+            </Text>
+          )}
         </View>
       </View>
 
@@ -466,7 +526,7 @@ export default function DepthOfFieldIndicator({
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>ENGRAVED LENS BARREL DOF SCALE (1968 STYLE)</Text>
           <Text style={styles.cardSub}>
-            ZONE BRACKET AT {formatAperture(selectedAperture)}: [{formatDist(dof.nearLimitM)} — ♦ {formatDist(effectiveDistanceM)} — {formatDist(dof.farLimitM)}]
+            ZONE BRACKET AT {formatAperture(effectiveAperture)}: [{formatDist(dof.nearLimitM)} — ♦ {formatDist(effectiveDistanceM)} — {formatDist(dof.farLimitM)}]
           </Text>
         </View>
         <View style={styles.barrelScaleWrap}>
@@ -480,26 +540,36 @@ export default function DepthOfFieldIndicator({
             <View style={[styles.barrelBracketLine, { backgroundColor: C.orange }]} />
             <Text style={styles.barrelFarText}>{formatDist(dof.farLimitM)}</Text>
           </View>
-          {/* Aperture Index Marks (16 11 8 5.6 4 | ♦ | 4 5.6 8 11 16) */}
+          {/* Aperture Index Marks (only stops possible in this light are highlighted) */}
           <View style={styles.barrelApertureRow}>
-            {[16, 11, 8, 5.6, 4, 2.8].map((stop) => {
-              const active = Math.abs(selectedAperture - stop) < 0.6;
+            {[...lens.apertures].reverse().map((stop) => {
+              const possible = sortedValidPairs.some((p) => p.aperture === stop);
+              const active = stop === effectiveAperture;
               return (
                 <Text
                   key={`L-${stop}`}
-                  style={[styles.barrelStopMark, active && styles.barrelStopMarkActiveTeal]}
+                  style={[
+                    styles.barrelStopMark,
+                    !possible && { opacity: 0.25 },
+                    active && styles.barrelStopMarkActiveTeal,
+                  ]}
                 >
                   {stop}
                 </Text>
               );
             })}
             <Text style={styles.barrelDiamond}>♦</Text>
-            {[2.8, 4, 5.6, 8, 11, 16].map((stop) => {
-              const active = Math.abs(selectedAperture - stop) < 0.6;
+            {lens.apertures.map((stop) => {
+              const possible = sortedValidPairs.some((p) => p.aperture === stop);
+              const active = stop === effectiveAperture;
               return (
                 <Text
                   key={`R-${stop}`}
-                  style={[styles.barrelStopMark, active && styles.barrelStopMarkActiveOrange]}
+                  style={[
+                    styles.barrelStopMark,
+                    !possible && { opacity: 0.25 },
+                    active && styles.barrelStopMarkActiveOrange,
+                  ]}
                 >
                   {stop}
                 </Text>
@@ -639,6 +709,12 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: C.paperDark,
   },
+  distPillShutter: {
+    fontFamily: type,
+    fontSize: 8,
+    color: C.mustard,
+    marginTop: 1,
+  },
   apPill: {
     borderWidth: 1,
     borderColor: '#5A4E40',
@@ -652,15 +728,35 @@ const styles = StyleSheet.create({
     backgroundColor: C.paper,
     borderColor: C.mustard,
   },
+  apPillDisabled: {
+    backgroundColor: '#191512',
+    borderColor: '#362E25',
+    borderStyle: 'dashed',
+    opacity: 0.42,
+  },
   apPillText: {
     fontFamily: display,
     fontSize: 15,
     color: C.paper,
   },
+  apPillTextDisabled: {
+    color: '#7A6E5D',
+    textDecorationLine: 'line-through',
+  },
   apPillSub: {
     fontFamily: type,
     fontSize: 8,
     color: C.mustard,
+  },
+  apPillSubDisabled: {
+    color: '#7A6E5D',
+  },
+  lightLimitNote: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.paperDark,
+    marginTop: 6,
+    lineHeight: 14,
   },
 
   diagramFrame: {

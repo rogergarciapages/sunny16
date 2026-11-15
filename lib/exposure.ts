@@ -238,20 +238,15 @@ export function recommend(
 
   let best: Setting | null = null;
   if (preferredAperture !== undefined) {
-    // If the lens has this exact aperture stop, find the best shutter speed for it
-    const exactForAperture = all
-      .filter((x) => x.aperture === preferredAperture)
-      .sort((a, b) => Math.abs(a.errorStops) - Math.abs(b.errorStops) || shutterDist(a) - shutterDist(b))[0];
-    // If within usable range (<= 0.6 EV) or no good pool exists, use exact aperture match; otherwise closest valid exposure to preferredAperture
-    const closestValid = [...pool].sort(
-      (a, b) =>
-        apertureDist(a, preferredAperture) - apertureDist(b, preferredAperture) ||
-        Math.abs(a.errorStops) - Math.abs(b.errorStops),
-    )[0];
+    // Strictly select from valid exposures in this light condition (pool),
+    // picking the valid exposure whose aperture is closest to preferredAperture.
     best =
-      exactForAperture && Math.abs(exactForAperture.errorStops) <= 0.6
-        ? exactForAperture
-        : exactForAperture ?? closestValid ?? null;
+      [...pool].sort(
+        (a, b) =>
+          apertureDist(a, preferredAperture) - apertureDist(b, preferredAperture) ||
+          Math.abs(a.errorStops) - Math.abs(b.errorStops) ||
+          shutterDist(a) - shutterDist(b),
+      )[0] ?? null;
   } else {
     best =
       (close.length

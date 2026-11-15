@@ -105,6 +105,29 @@ export default function App() {
       ? preferredAperture
       : undefined;
 
+  const activeCondition = conditions.find((c) => c.id === conditionId) ?? conditions[0];
+  const lightConditionedAperture = useMemo(() => {
+    if (validPreferredAperture === undefined || !camera || !lens) return undefined;
+    const rec = recommend(
+      iso,
+      activeCondition,
+      camera,
+      lens,
+      activeFilter.stops,
+      activeGritty.evShiftStops,
+      validPreferredAperture,
+    );
+    return rec.best?.aperture ?? validPreferredAperture;
+  }, [
+    validPreferredAperture,
+    iso,
+    activeCondition,
+    camera,
+    lens,
+    activeFilter.stops,
+    activeGritty.evShiftStops,
+  ]);
+
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: C.paper }} />;
 
   const selectBrand = (id: string) => {
@@ -211,8 +234,8 @@ export default function App() {
                   ISO {iso} · {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
                   {filterId !== 'none' ? ` · ${activeFilter.shortName}` : ''}
                   {grittyId !== 'off' ? ` · ${activeGritty.shortName}` : ''}
-                  {validPreferredAperture !== undefined
-                    ? ` · Lock ${formatAperture(validPreferredAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})`
+                  {lightConditionedAperture !== undefined
+                    ? ` · Lock ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})`
                     : ''}
                 </Text>
               </View>
@@ -270,14 +293,14 @@ export default function App() {
               <View style={styles.tableHeader}>
                 <Text style={styles.tableHeaderText}>EXPOSURE TABLE</Text>
                 <View style={styles.headerBadges}>
-                  {validPreferredAperture !== undefined && (
+                  {lightConditionedAperture !== undefined && (
                     <Pressable
                       nativeID="reset-aperture-lock"
                       onPress={() => setPreferredAperture(undefined)}
                       style={[styles.isoBox, { backgroundColor: C.mustard }]}
                     >
                       <Text style={styles.isoBoxText}>
-                        DOF LOCK {formatAperture(validPreferredAperture)} ✕
+                        DOF LOCK {formatAperture(lightConditionedAperture)} ✕
                       </Text>
                     </Pressable>
                   )}
@@ -302,7 +325,7 @@ export default function App() {
                 {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
                 {activeFilter.id !== 'none' ? ` · ${activeFilter.name}` : ''}
                 {activeGritty.id !== 'off' ? ` · ${activeGritty.name}` : ''}
-                {validPreferredAperture !== undefined ? ` · Priority: ${formatAperture(validPreferredAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})` : ''}
+                {lightConditionedAperture !== undefined ? ` · Priority: ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})` : ''}
               </Text>
 
               <View style={[styles.grid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
@@ -411,8 +434,8 @@ export default function App() {
           RECOMMENDED SETTING · {cond.title.toUpperCase()}
           {activeFilter.id !== 'none' ? ` · ${activeFilter.shortName} (${activeFilter.factor})` : ''}
           {activeGritty.id !== 'off' ? ` · ${activeGritty.shortName}` : ''}
-          {validPreferredAperture !== undefined
-            ? ` · DOF PRIORITY (${isHyperfocalMode ? 'HYPERFOCAL' : `${focusDistanceM}M`} · ${formatAperture(validPreferredAperture)})`
+          {validPreferredAperture !== undefined && bestDisplay
+            ? ` · DOF PRIORITY (${isHyperfocalMode ? 'HYPERFOCAL' : `${focusDistanceM}M`} · ${formatAperture(bestDisplay.aperture)})`
             : ''}
         </Text>
         {bestDisplay ? (
