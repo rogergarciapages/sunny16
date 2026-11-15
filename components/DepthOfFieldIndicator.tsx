@@ -143,14 +143,17 @@ export default function DepthOfFieldIndicator({
     : distanceM;
   const dof = calculateDof(camera, lens, effectiveAperture, effectiveDistanceM);
 
-  // Determine ruler max scale in meters (like the 0..5..10..12m ruler in the concept screenshot)
-  const rawMax =
-    effectiveDistanceM <= 3.5
+  // Auto-zoom ruler max scale in meters based on focus distance so close-ups (0.7m–1.2m) have generous visual separation
+  const maxRulerM =
+    effectiveDistanceM <= 1.4
+      ? 3
+      : effectiveDistanceM <= 2.4
+      ? 5
+      : effectiveDistanceM <= 3.6
+      ? 8
+      : effectiveDistanceM <= 6.0
       ? 12
-      : effectiveDistanceM <= 6
-      ? 16
-      : Math.ceil((effectiveDistanceM * 2.2) / 5) * 5;
-  const maxRulerM = Math.max(10, Math.min(60, rawMax));
+      : Math.max(15, Math.min(60, Math.ceil((effectiveDistanceM * 2.0) / 5) * 5));
 
   const toPct = (m: number) => {
     if (!Number.isFinite(m)) return 100;
@@ -162,14 +165,16 @@ export default function DepthOfFieldIndicator({
   const subjPct = toPct(effectiveDistanceM);
   const dofWidthPct = Math.max(1.5, farPct - nearPct);
 
-  // Generate ruler ticks
-  const majorStep = maxRulerM <= 15 ? 5 : maxRulerM <= 30 ? 5 : 10;
-  const minorStep = maxRulerM <= 16 ? 1 : 2;
+  // Generate ruler ticks appropriate for the auto-zoomed scale
+  const majorStep =
+    maxRulerM <= 5 ? 1 : maxRulerM <= 8 ? 2 : maxRulerM <= 12 ? 3 : maxRulerM <= 30 ? 5 : 10;
+  const minorStep = maxRulerM <= 3 ? 0.5 : maxRulerM <= 12 ? 1 : 2;
+  const stepIncrement = minorStep / 2;
   const ticks: { m: number; major: boolean; half: boolean }[] = [];
-  for (let m = 0; m <= maxRulerM; m += minorStep / 2) {
-    const rounded = Number(m.toFixed(1));
-    const isMajor = rounded % majorStep === 0;
-    const isUnit = rounded % minorStep === 0;
+  for (let m = 0; m <= maxRulerM + 0.001; m += stepIncrement) {
+    const rounded = Number(m.toFixed(2));
+    const isMajor = Math.abs(rounded % majorStep) < 0.01 || Math.abs((rounded % majorStep) - majorStep) < 0.01;
+    const isUnit = Math.abs(rounded % minorStep) < 0.01 || Math.abs((rounded % minorStep) - minorStep) < 0.01;
     ticks.push({ m: rounded, major: isMajor, half: !isUnit });
   }
 
@@ -370,18 +375,32 @@ export default function DepthOfFieldIndicator({
           </View>
         </View>
 
-        {/* Near Limit Line (Teal/Blue like screenshot) */}
+        {/* Near Limit Line (Teal/Blue, staggered upper-left so it never overlaps Far or Focus flags) */}
         <View style={[styles.nearLine, { left: `${nearPct}%` }]}>
-          <View style={styles.nearFlag}>
-            <Text style={styles.flagText}>NEAR {formatDist(dof.nearLimitM)}</Text>
+          <View
+            style={[
+              styles.nearFlag,
+              nearPct > 22 ? { right: 3 } : { left: 3 },
+            ]}
+          >
+            <Text style={styles.flagText} numberOfLines={1}>
+              NEAR {formatDist(dof.nearLimitM)}
+            </Text>
           </View>
         </View>
 
-        {/* Far Limit Line (Orange like screenshot) */}
+        {/* Far Limit Line (Orange, staggered lower-right so it never overlaps Near or Focus flags) */}
         {Number.isFinite(dof.farLimitM) && dof.farLimitM <= maxRulerM ? (
           <View style={[styles.farLine, { left: `${farPct}%` }]}>
-            <View style={styles.farFlag}>
-              <Text style={styles.flagText}>FAR {formatDist(dof.farLimitM)}</Text>
+            <View
+              style={[
+                styles.farFlag,
+                farPct < 78 ? { left: 3 } : { right: 3 },
+              ]}
+            >
+              <Text style={styles.flagText} numberOfLines={1}>
+                FAR {formatDist(dof.farLimitM)}
+              </Text>
             </View>
           </View>
         ) : (
@@ -391,6 +410,11 @@ export default function DepthOfFieldIndicator({
             </Text>
           </View>
         )}
+
+        {/* Auto-Zoom Ruler Scale Badge */}
+        <View style={styles.scaleBadge}>
+          <Text style={styles.scaleBadgeText}>SCALE 0–{maxRulerM}M</Text>
+        </View>
 
         {/* Photographer at 0m */}
         <View style={styles.photographerPos}>
@@ -825,13 +849,14 @@ const styles = StyleSheet.create({
   },
   nearFlag: {
     position: 'absolute',
-    bottom: 36,
-    left: 3,
+    top: 34,
     backgroundColor: C.teal,
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderWidth: 1,
     borderColor: C.ink,
+    minWidth: 64,
+    alignItems: 'center',
   },
   farLine: {
     position: 'absolute',
@@ -843,13 +868,31 @@ const styles = StyleSheet.create({
   },
   farFlag: {
     position: 'absolute',
-    bottom: 36,
-    right: 3,
+    bottom: 34,
     backgroundColor: C.orange,
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderWidth: 1,
     borderColor: C.ink,
+    minWidth: 64,
+    alignItems: 'center',
+  },
+  scaleBadge: {
+    position: 'absolute',
+    left: 6,
+    top: 6,
+    backgroundColor: C.paper,
+    borderWidth: 1,
+    borderColor: C.ink,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    zIndex: 5,
+  },
+  scaleBadgeText: {
+    fontFamily: display,
+    fontSize: 10,
+    color: C.ink,
+    letterSpacing: 0.6,
   },
   flagText: {
     fontFamily: display,

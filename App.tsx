@@ -1,5 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable, Platform, useWindowDimensions } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  Platform,
+  TextInput,
+  useWindowDimensions,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite';
@@ -73,6 +83,7 @@ export default function App() {
   const [fontsLoaded] = useFonts({ BebasNeue_400Regular, SpecialElite_400Regular });
   const { width } = useWindowDimensions();
   const wide = width > 760;
+  const compact = width < 520;
 
   const [iso, setIso] = useState(400);
   const [filmStockId, setFilmStockId] = useState<string | undefined>('portra-400');
@@ -83,6 +94,27 @@ export default function App() {
   const brandCameras = useMemo(() => cameras.filter((c) => c.brandId === brandId), [brandId]);
   const [cameraId, setCameraId] = useState<string | undefined>(brandCameras[0]?.id);
   const camera = cameras.find((c) => c.id === cameraId && c.brandId === brandId) ?? brandCameras[0];
+
+  const [gearCollapsed, setGearCollapsed] = useState<boolean>(false);
+  const [cameraDecade, setCameraDecade] = useState<'all' | '60s' | '70s' | '80s' | '90s'>('all');
+  const [cameraSearch, setCameraSearch] = useState<string>('');
+  const [activeDetailTab, setActiveDetailTab] = useState<'dof' | 'filters' | 'grit' | 'film' | 'all'>('dof');
+
+  const filteredBrandCameras = useMemo(() => {
+    const q = cameraSearch.trim().toLowerCase();
+    return brandCameras.filter((c) => {
+      if (c.id === camera?.id) return true;
+      const matchesDecade =
+        cameraDecade === 'all' ||
+        (cameraDecade === '60s' && c.year < 1970) ||
+        (cameraDecade === '70s' && c.year >= 1970 && c.year < 1980) ||
+        (cameraDecade === '80s' && c.year >= 1980 && c.year < 1990) ||
+        (cameraDecade === '90s' && c.year >= 1990);
+      const matchesSearch =
+        !q || c.name.toLowerCase().includes(q) || String(c.year).includes(q) || c.format.toLowerCase().includes(q);
+      return matchesDecade && matchesSearch;
+    });
+  }, [brandCameras, camera?.id, cameraDecade, cameraSearch]);
 
   const cameraLenses = useMemo(() => {
     if (!camera) return [];
@@ -151,6 +183,8 @@ export default function App() {
     setCameraId(cameras.find((c) => c.brandId === id)?.id);
     setLensId(undefined);
     setPreferredAperture(undefined);
+    setCameraDecade('all');
+    setCameraSearch('');
   };
 
   const hasActiveTweaks =
@@ -190,144 +224,317 @@ export default function App() {
     setBrandId(defaultBrandId);
     setCameraId(defaultCameraId);
     setLensId(undefined);
+    setCameraDecade('all');
+    setCameraSearch('');
     resetTweaksToSunny16();
   };
+
+  const activeBrandName = brands.find((b) => b.id === brandId)?.name ?? '';
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.page}>
+      <ScrollView contentContainerStyle={[styles.scroll, compact && { padding: 8 }]}>
+        <View style={[styles.page, compact && { padding: 12 }]}>
           {/* Masthead */}
-          <View style={styles.stripes}>
+          <View style={[styles.stripes, compact && { marginHorizontal: -12, marginTop: -12, marginBottom: 10 }]}>
             {[C.mustard, C.orange, C.brown, C.teal].map((c) => <View key={c} style={[styles.stripe, { backgroundColor: c }]} />)}
           </View>
-          <View style={styles.masthead}>
+          <View style={[styles.masthead, compact && { paddingBottom: 8, marginBottom: 4 }]}>
             <Text style={styles.kicker}>THE ANALOG PHOTOGRAPHER&apos;S POCKET GUIDE · NO. 16</Text>
-            <Text style={styles.title} accessibilityRole="header">SUNNY 16</Text>
-            <Text style={styles.tagline}>&quot;Set shutter speed closest to the film speed&quot;</Text>
+            <Text style={[styles.title, compact && { fontSize: 58, lineHeight: 60 }]} accessibilityRole="header">
+              SUNNY 16
+            </Text>
+            <Text style={[styles.tagline, compact && { fontSize: 13 }]}>
+              &quot;Set shutter speed closest to the film speed&quot;
+            </Text>
           </View>
 
-          <Section step="1" title="Film Speed · ISO / ASA & Classic Film Stocks">
-            {films.map((f) => (
-              <Chip
-                key={f.iso}
-                id={`iso-${f.iso}`}
-                label={`${f.iso}`}
-                sub={f.label.split('/ ')[1]}
-                active={iso === f.iso}
-                onPress={() => {
-                  setIso(f.iso);
-                  const matchingStock = filmStocks.find((s) => s.iso === f.iso);
-                  setFilmStockId(matchingStock?.id);
-                }}
-              />
-            ))}
-          </Section>
-
-          {/* Classic Film Stock Presets & Latitude Guide */}
-          <View style={styles.filmStockBox} nativeID="film-stock-presets">
-            <Text style={styles.filmStockHeaderLabel}>
-              CLASSIC FILM STOCK PRESETS (TAP TO LOAD ISO & LATITUDE GUIDE):
-            </Text>
-            <View style={styles.chipRow}>
-              <Pressable
-                nativeID="stock-generic"
-                onPress={() => setFilmStockId(undefined)}
-                style={[styles.stockPill, !activeFilmStock && styles.stockPillActive]}
-              >
-                <Text style={[styles.stockPillTitle, !activeFilmStock && { color: C.paper }]}>
-                  GENERIC ISO {iso}
-                </Text>
-                <Text style={[styles.stockPillSub, !activeFilmStock && { color: C.paperDark }]}>
-                  STANDARD CURVE
-                </Text>
-              </Pressable>
-              {filmStocks.map((stock) => {
-                const active = activeFilmStock?.id === stock.id;
-                return (
-                  <Pressable
-                    key={stock.id}
-                    nativeID={`stock-${stock.id}`}
-                    onPress={() => {
-                      setIso(stock.iso);
-                      setFilmStockId(stock.id);
-                    }}
-                    style={[styles.stockPill, active && styles.stockPillActive]}
-                  >
-                    <Text style={[styles.stockPillTitle, active && { color: C.paper }]}>
-                      {stock.shortName}
+          {/* UX #1: Collapsible Active Rig / Gear Locker Summary Bar */}
+          {camera && lens && (
+            <View style={styles.rigLockerBar} nativeID="rig-locker-bar">
+              <View style={styles.rigLockerTopRow}>
+                <View style={styles.rigLockerTitleGroup}>
+                  <View style={styles.rigBadgeIcon}>
+                    <Text style={styles.rigBadgeIconText}>📷</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.rigLockerTitle}>YOUR LOADED RIG (STEPS 1–4)</Text>
+                    <Text style={styles.rigLockerSub}>
+                      {gearCollapsed
+                        ? 'Gear locked for field shooting — tap any card below to swap gear'
+                        : 'Select your film, camera & lens below, then lock rig to focus on the meter'}
                     </Text>
-                    <Text style={[styles.stockPillSub, active && { color: C.mustard }]}>
-                      ISO {stock.iso} · {stock.process.split(' ')[0]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {activeFilmStock && (
-              <View style={styles.filmStockBanner}>
-                <View style={styles.filmStockBannerHead}>
-                  <Text style={styles.filmStockBannerTitle}>
-                    {activeFilmStock.name.toUpperCase()} · {activeFilmStock.process.toUpperCase()}
-                  </Text>
-                  <View style={styles.filmStockBadgesRow}>
-                    <View style={styles.filmLatitudeBadge}>
-                      <Text style={styles.filmLatitudeBadgeText}>
-                        LATITUDE: +{activeFilmStock.latitudeOverStops} / −{activeFilmStock.latitudeUnderStops} EV
-                      </Text>
-                    </View>
-                    <View style={[styles.filmLatitudeBadge, { backgroundColor: C.teal }]}>
-                      <Text style={[styles.filmLatitudeBadgeText, { color: C.paper }]}>
-                        GRAIN: {activeFilmStock.grain.toUpperCase()}
-                      </Text>
-                    </View>
                   </View>
                 </View>
-                <Text style={styles.filmStockCharText}>{activeFilmStock.character}</Text>
-                <Text style={styles.filmStockTipText}>
-                  <Text style={{ fontFamily: display, color: C.orange, fontSize: 13 }}>FIELD TIP: </Text>
-                  {activeFilmStock.fieldTip}
-                </Text>
+                <Pressable
+                  nativeID="btn-toggle-gear-locker"
+                  onPress={() => setGearCollapsed((v) => !v)}
+                  style={[
+                    styles.rigCollapseBtn,
+                    gearCollapsed && { backgroundColor: C.mustard },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.rigCollapseBtnText,
+                      gearCollapsed && { color: C.ink },
+                    ]}
+                  >
+                    {gearCollapsed ? '▼ CHANGE GEAR' : '▲ LOCK RIG & METER'}
+                  </Text>
+                </Pressable>
               </View>
-            )}
-          </View>
 
-          <Section step="2" title="Camera Brand">
-            {brands.map((b) => (
-              <Chip key={b.id} id={`brand-${b.id}`} label={b.name} sub={b.country} active={brandId === b.id} onPress={() => selectBrand(b.id)} />
-            ))}
-          </Section>
+              <View style={styles.rigCardsRow}>
+                <Pressable
+                  nativeID="rig-card-film"
+                  onPress={() => setGearCollapsed(false)}
+                  style={styles.rigSummaryCard}
+                >
+                  <Text style={styles.rigCardStep}>1 · FILM STOCK / ISO</Text>
+                  <Text style={styles.rigCardVal} numberOfLines={1}>
+                    {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}
+                  </Text>
+                  <Text style={styles.rigCardSub} numberOfLines={1}>
+                    {activeFilmStock ? `ISO ${iso} · ${activeFilmStock.process}` : `ASA ${iso} Standard`}
+                  </Text>
+                </Pressable>
 
-          <Section step="3" title="Camera Model">
-            {brandCameras.map((c) => (
-              <Chip key={c.id} id={`camera-${c.id}`} label={c.name} sub={`${c.year} · ${c.format}`} active={camera?.id === c.id} onPress={() => { setCameraId(c.id); setLensId(undefined); setPreferredAperture(undefined); }} />
-            ))}
-          </Section>
+                <Pressable
+                  nativeID="rig-card-camera"
+                  onPress={() => setGearCollapsed(false)}
+                  style={styles.rigSummaryCard}
+                >
+                  <Text style={styles.rigCardStep}>2–3 · CAMERA BODY</Text>
+                  <Text style={styles.rigCardVal} numberOfLines={1}>
+                    {activeBrandName} {camera.name}
+                  </Text>
+                  <Text style={styles.rigCardSub} numberOfLines={1}>
+                    {camera.year} · {camera.format} · Max {formatShutter(Math.min(...camera.shutterSpeeds))}
+                  </Text>
+                </Pressable>
 
-          <Section step="4" title="Lens">
-            {cameraLenses.length === 0 ? (
-              <Text style={styles.body}>No lenses listed for this mount yet — add one in data/lenses.ts</Text>
-            ) : (
-              cameraLenses.map((l) => {
-                const eqMm = camera ? get35mmEquivalentFocalLength(camera, l) : l.focalLength;
-                const eqSuffix = eqMm !== l.focalLength ? ` · ≈${eqMm}mm eq.` : '';
-                return (
+                <Pressable
+                  nativeID="rig-card-lens"
+                  onPress={() => setGearCollapsed(false)}
+                  style={styles.rigSummaryCard}
+                >
+                  <Text style={styles.rigCardStep}>4 · MOUNTED LENS</Text>
+                  <Text style={styles.rigCardVal} numberOfLines={1}>
+                    {lens.name}
+                  </Text>
+                  <Text style={styles.rigCardSub} numberOfLines={1}>
+                    f/{lens.apertures[0]}–f/{lens.apertures[lens.apertures.length - 1]}
+                    {get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
+                      ? ` · ≈${get35mmEquivalentFocalLength(camera, lens)}mm eq.`
+                      : ''}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {/* Steps 1–4 (Collapsible Gear Setup) */}
+          {!gearCollapsed && (
+            <View nativeID="gear-setup-steps">
+              <Section step="1" title="Film Speed · ISO / ASA & Classic Film Stocks">
+                {films.map((f) => (
                   <Chip
-                    key={l.id}
-                    id={`lens-${l.id}`}
-                    label={l.name}
-                    sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}${eqSuffix}`}
-                    active={lens?.id === l.id}
+                    key={f.iso}
+                    id={`iso-${f.iso}`}
+                    label={`${f.iso}`}
+                    sub={f.label.split('/ ')[1]}
+                    active={iso === f.iso}
                     onPress={() => {
-                      setLensId(l.id);
-                      setPreferredAperture(undefined);
+                      setIso(f.iso);
+                      const matchingStock = filmStocks.find((s) => s.iso === f.iso);
+                      setFilmStockId(matchingStock?.id);
                     }}
                   />
-                );
-              })
-            )}
-          </Section>
+                ))}
+              </Section>
+
+              {/* Classic Film Stock Presets & Latitude Guide */}
+              <View style={styles.filmStockBox} nativeID="film-stock-presets">
+                <Text style={styles.filmStockHeaderLabel}>
+                  CLASSIC FILM STOCK PRESETS (TAP TO LOAD ISO & LATITUDE GUIDE):
+                </Text>
+                <View style={styles.chipRow}>
+                  <Pressable
+                    nativeID="stock-generic"
+                    onPress={() => setFilmStockId(undefined)}
+                    style={[styles.stockPill, !activeFilmStock && styles.stockPillActive]}
+                  >
+                    <Text style={[styles.stockPillTitle, !activeFilmStock && { color: C.paper }]}>
+                      GENERIC ISO {iso}
+                    </Text>
+                    <Text style={[styles.stockPillSub, !activeFilmStock && { color: C.paperDark }]}>
+                      STANDARD CURVE
+                    </Text>
+                  </Pressable>
+                  {filmStocks.map((stock) => {
+                    const active = activeFilmStock?.id === stock.id;
+                    return (
+                      <Pressable
+                        key={stock.id}
+                        nativeID={`stock-${stock.id}`}
+                        onPress={() => {
+                          setIso(stock.iso);
+                          setFilmStockId(stock.id);
+                        }}
+                        style={[styles.stockPill, active && styles.stockPillActive]}
+                      >
+                        <Text style={[styles.stockPillTitle, active && { color: C.paper }]}>
+                          {stock.shortName}
+                        </Text>
+                        <Text style={[styles.stockPillSub, active && { color: C.mustard }]}>
+                          ISO {stock.iso} · {stock.process.split(' ')[0]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {activeFilmStock && (
+                  <View style={styles.filmStockBanner}>
+                    <View style={styles.filmStockBannerHead}>
+                      <Text style={styles.filmStockBannerTitle}>
+                        {activeFilmStock.name.toUpperCase()} · {activeFilmStock.process.toUpperCase()}
+                      </Text>
+                      <View style={styles.filmStockBadgesRow}>
+                        <View style={styles.filmLatitudeBadge}>
+                          <Text style={styles.filmLatitudeBadgeText}>
+                            LATITUDE: +{activeFilmStock.latitudeOverStops} / −{activeFilmStock.latitudeUnderStops} EV
+                          </Text>
+                        </View>
+                        <View style={[styles.filmLatitudeBadge, { backgroundColor: C.teal }]}>
+                          <Text style={[styles.filmLatitudeBadgeText, { color: C.paper }]}>
+                            GRAIN: {activeFilmStock.grain.toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <Text style={styles.filmStockCharText}>{activeFilmStock.character}</Text>
+                    <Text style={styles.filmStockTipText}>
+                      <Text style={{ fontFamily: display, color: C.orange, fontSize: 13 }}>FIELD TIP: </Text>
+                      {activeFilmStock.fieldTip}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <Section step="2" title="Camera Brand">
+                {brands.map((b) => (
+                  <Chip key={b.id} id={`brand-${b.id}`} label={b.name} sub={b.country} active={brandId === b.id} onPress={() => selectBrand(b.id)} />
+                ))}
+              </Section>
+
+              {/* UX #2: Step 3 with Decade Filter Pills & Quick Search */}
+              <View style={styles.section}>
+                <View style={styles.sectionHead}>
+                  <View style={styles.stepBadge}><Text style={styles.stepText}>3</Text></View>
+                  <Text style={styles.sectionTitle}>Camera Model ({activeBrandName})</Text>
+                  <View style={styles.rule} />
+                </View>
+                {brandCameras.length > 6 && (
+                  <View style={styles.cameraFilterBar} nativeID="camera-filter-bar">
+                    <View style={styles.decadePillsRow}>
+                      {[
+                        { id: 'all' as const, label: `ALL (${brandCameras.length})` },
+                        { id: '60s' as const, label: '50s–60s' },
+                        { id: '70s' as const, label: '1970s' },
+                        { id: '80s' as const, label: '1980s' },
+                        { id: '90s' as const, label: '1990s+' },
+                      ].map((dec) => {
+                        const active = cameraDecade === dec.id;
+                        return (
+                          <Pressable
+                            key={dec.id}
+                            nativeID={`decade-${dec.id}`}
+                            onPress={() => setCameraDecade(dec.id)}
+                            style={[styles.decadePill, active && styles.decadePillActive]}
+                          >
+                            <Text style={[styles.decadePillText, active && { color: C.paper }]}>
+                              {dec.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <View style={styles.searchBoxWrap}>
+                      <TextInput
+                        nativeID="camera-search-input"
+                        value={cameraSearch}
+                        onChangeText={setCameraSearch}
+                        placeholder={`Search ${activeBrandName} model or year...`}
+                        placeholderTextColor={C.brown}
+                        style={styles.searchInput}
+                      />
+                      {cameraSearch.length > 0 && (
+                        <Pressable
+                          nativeID="clear-camera-search"
+                          onPress={() => setCameraSearch('')}
+                          style={styles.searchClearBtn}
+                        >
+                          <Text style={styles.searchClearText}>✕</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+                )}
+                <View style={styles.chipRow}>
+                  {filteredBrandCameras.map((c) => (
+                    <Chip
+                      key={c.id}
+                      id={`camera-${c.id}`}
+                      label={c.name}
+                      sub={`${c.year} · ${c.format}`}
+                      active={camera?.id === c.id}
+                      onPress={() => {
+                        setCameraId(c.id);
+                        setLensId(undefined);
+                        setPreferredAperture(undefined);
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              <Section step="4" title="Lens">
+                {cameraLenses.length === 0 ? (
+                  <Text style={styles.body}>No lenses listed for this mount yet — add one in data/lenses.ts</Text>
+                ) : (
+                  cameraLenses.map((l) => {
+                    const eqMm = camera ? get35mmEquivalentFocalLength(camera, l) : l.focalLength;
+                    const eqSuffix = eqMm !== l.focalLength ? ` · ≈${eqMm}mm eq.` : '';
+                    return (
+                      <Chip
+                        key={l.id}
+                        id={`lens-${l.id}`}
+                        label={l.name}
+                        sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}${eqSuffix}`}
+                        active={lens?.id === l.id}
+                        onPress={() => {
+                          setLensId(l.id);
+                          setPreferredAperture(undefined);
+                        }}
+                      />
+                    );
+                  })
+                )}
+              </Section>
+
+              <Pressable
+                nativeID="btn-collapse-after-lens"
+                onPress={() => setGearCollapsed(true)}
+                style={styles.lockRigBottomBanner}
+              >
+                <Text style={styles.lockRigBottomText}>
+                  ▲ LOCK RIG ({activeBrandName.toUpperCase()} {camera?.name.toUpperCase()} · {lens?.name.toUpperCase()}) & FOCUS ON METER ▲
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* Board Control Bar (Start / Reset before Exposure Table) */}
           {camera && lens && (
@@ -538,7 +745,82 @@ export default function App() {
                 </View>
               </View>
 
-              <View style={[styles.grid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+              {/* UX #3: Live Viewfinder Hero Strip above the 2-Column Mobile Scene Grid */}
+              {(() => {
+                const heroRec = recommend(
+                  iso,
+                  activeCondition,
+                  camera,
+                  lens,
+                  totalPositiveStops,
+                  activeGritty.evShiftStops,
+                  validPreferredAperture,
+                  prioritizeHandheld,
+                );
+                const heroGrit =
+                  activeGritty.id === 'kinetic' && validPreferredAperture === undefined
+                    ? recommendGritty(iso, activeCondition, camera, lens, totalPositiveStops, activeGritty)
+                    : null;
+                const heroBest = heroGrit?.dragSetting ?? heroRec.best;
+                const heroShake = heroBest
+                  ? evaluateHandheldSafety(heroBest.shutter, camera, lens)
+                  : null;
+                return (
+                  <View style={styles.viewfinderHeroStrip} nativeID="viewfinder-hero-strip">
+                    <View style={styles.viewfinderSceneCol}>
+                      <Text style={styles.viewfinderKicker}>LIVE VIEWFINDER · TAP SCENE BELOW</Text>
+                      <Text style={styles.viewfinderSceneTitle}>{activeCondition.title.toUpperCase()}</Text>
+                      <Text style={styles.viewfinderSceneSub} numberOfLines={1}>
+                        {activeCondition.hint}
+                      </Text>
+                    </View>
+                    {heroBest ? (
+                      <View style={styles.viewfinderDialsRow}>
+                        <View style={styles.viewfinderDialBox}>
+                          <Text style={styles.viewfinderDialLabel}>APERTURE</Text>
+                          <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
+                            {formatAperture(heroBest.aperture)}
+                          </Text>
+                        </View>
+                        <View style={[styles.viewfinderDialBox, { backgroundColor: C.orange }]}>
+                          <Text style={styles.viewfinderDialLabel}>SHUTTER</Text>
+                          <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
+                            {formatShutter(heroBest.shutter)}
+                          </Text>
+                        </View>
+                        {heroShake && (
+                          <View
+                            style={[
+                              styles.viewfinderShakePill,
+                              heroShake.status === 'safe'
+                                ? { backgroundColor: C.teal }
+                                : heroShake.status === 'borderline'
+                                ? { backgroundColor: C.mustard }
+                                : { backgroundColor: C.orange },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.viewfinderShakeText,
+                                heroShake.status === 'borderline' && { color: C.ink },
+                              ]}
+                            >
+                              {heroShake.status === 'safe'
+                                ? '✓ SAFE'
+                                : heroShake.status === 'borderline'
+                                ? '⚠ BRACE'
+                                : '▲ TRIPOD'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })()}
+
+              {/* UX #6: 2-Column Mobile Grid (50%) / 3-Column Desktop Grid (33.333%) */}
+              <View style={[styles.grid, { flexDirection: 'row', flexWrap: 'wrap' }]}>
                 {conditions
                   .filter((cond) => sceneCategory === 'all' || cond.category === sceneCategory)
                   .map((cond) => {
@@ -568,25 +850,30 @@ export default function App() {
                         onPress={() => setConditionId(cond.id)}
                         style={[
                           styles.cell,
-                          wide && { width: '33.333%' },
+                          { width: wide ? '33.333%' : '50%' },
+                          compact && { padding: 8, gap: 8 },
                           cond.category === 'lowlight' && !active && styles.cellLowLight,
                           active && styles.cellActive,
                         ]}
                       >
-                        <View style={styles.iconBox}><WeatherIcon id={cond.id} size={44} /></View>
+                        <View style={[styles.iconBox, compact && { width: 36, height: 36 }]}>
+                          <WeatherIcon id={cond.id} size={compact ? 32 : 44} />
+                        </View>
                         <View style={{ flex: 1 }}>
                           <View style={styles.condTitleRow}>
-                            <Text style={styles.condTitle}>{cond.title}</Text>
+                            <Text style={[styles.condTitle, compact && { fontSize: 17 }]}>
+                              {cond.title}
+                            </Text>
                             {cond.category === 'lowlight' && (
                               <View style={styles.lowLightTag}>
-                                <Text style={styles.lowLightTagText}>LOW LIGHT</Text>
+                                <Text style={styles.lowLightTagText}>LOW</Text>
                               </View>
                             )}
                           </View>
-                          <Text style={styles.condHint}>{cond.hint}</Text>
+                          {!compact && <Text style={styles.condHint}>{cond.hint}</Text>}
                           {cellBest ? (
                             <View style={styles.condValueRow}>
-                              <Text style={styles.condValue}>
+                              <Text style={[styles.condValue, compact && { fontSize: 14 }]}>
                                 {formatAperture(cellBest.aperture)} · {formatShutter(cellBest.shutter)}
                               </Text>
                               {shake && (
@@ -602,10 +889,10 @@ export default function App() {
                                 >
                                   <Text style={styles.cellShakeText}>
                                     {shake.status === 'safe'
-                                      ? '✓ SAFE'
+                                      ? '✓'
                                       : shake.status === 'borderline'
-                                      ? '⚠ BRACE'
-                                      : '▲ TRIPOD'}
+                                      ? '⚠'
+                                      : '▲'}
                                   </Text>
                                 </View>
                               )}
@@ -693,7 +980,7 @@ export default function App() {
     };
 
     return (
-      <View style={styles.result} nativeID="result-panel">
+      <View style={[styles.result, compact && { padding: 12 }]} nativeID="result-panel">
         <Text style={styles.resultKicker}>
           RECOMMENDED SETTING · {cond.title.toUpperCase()}
           {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
@@ -708,11 +995,15 @@ export default function App() {
             <View style={styles.bigRow}>
               <View style={styles.bigBox}>
                 <Text style={styles.bigLabel}>APERTURE</Text>
-                <Text style={styles.bigValue}>{formatAperture(bestDisplay.aperture)}</Text>
+                <Text style={[styles.bigValue, compact && { fontSize: 48, lineHeight: 52 }]}>
+                  {formatAperture(bestDisplay.aperture)}
+                </Text>
               </View>
               <View style={[styles.bigBox, { backgroundColor: C.orange }]}>
                 <Text style={styles.bigLabel}>SHUTTER</Text>
-                <Text style={styles.bigValue}>{formatShutter(bestDisplay.shutter)}</Text>
+                <Text style={[styles.bigValue, compact && { fontSize: 48, lineHeight: 52 }]}>
+                  {formatShutter(bestDisplay.shutter)}
+                </Text>
               </View>
             </View>
 
@@ -801,6 +1092,55 @@ export default function App() {
                 </Text>
               </View>
             )}
+
+            {/* Quick In-Field Filter & Gritty Strip (Always accessible without switching tabs) */}
+            <View style={styles.quickTweaksBox} nativeID="quick-tweaks-strip">
+              <View style={styles.quickTweakCol}>
+                <Text style={styles.quickTweakLabel}>QUICK LENS FILTER:</Text>
+                <View style={styles.filterPillRow}>
+                  {lensFilters.map((f) => {
+                    const isSelected = f.id === activeFilter.id;
+                    return (
+                      <Pressable
+                        key={`quick-f-${f.id}`}
+                        onPress={() => setFilterId(f.id)}
+                        style={[
+                          styles.quickMiniPill,
+                          isSelected && { backgroundColor: f.color, borderColor: f.color },
+                        ]}
+                      >
+                        <Text style={[styles.quickMiniPillText, isSelected && { color: C.ink }]}>
+                          {f.shortName}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+              <View style={styles.quickTweakCol}>
+                <Text style={styles.quickTweakLabel}>QUICK GRIT / PUSH RECIPE:</Text>
+                <View style={styles.filterPillRow}>
+                  {grittyStyles.map((g) => {
+                    const isSelected = g.id === activeGritty.id;
+                    return (
+                      <Pressable
+                        key={`quick-g-${g.id}`}
+                        onPress={() => setGrittyId(g.id)}
+                        style={[
+                          styles.quickMiniPill,
+                          isSelected && { backgroundColor: C.orange, borderColor: C.mustard },
+                        ]}
+                      >
+                        <Text style={[styles.quickMiniPillText, isSelected && { color: C.paper }]}>
+                          {g.shortName}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+
             {r.alternatives.length > 0 && (
               <>
                 <Text style={styles.altTitle}>
@@ -850,267 +1190,350 @@ export default function App() {
               </>
             )}
 
-            {/* Depth of Field & Bokeh Visualizer */}
-            <DepthOfFieldIndicator
-              camera={camera!}
-              lens={lens!}
-              selectedAperture={bestDisplay.aperture}
-              hasApertureLock={validPreferredAperture !== undefined}
-              distanceM={focusDistanceM}
-              isHyperfocalMode={isHyperfocalMode}
-              allExposurePairs={[bestDisplay, ...r.alternatives]}
-              onSelectAperture={(ap) => {
-                setPreferredAperture(ap);
-                if (ap === undefined) setIsHyperfocalMode(false);
-              }}
-              onSelectDistance={handleSelectDistance}
-              onSelectHyperfocal={handleSelectHyperfocal}
-            />
+            {/* UX #4: 1968 Folder Tabs for Deep-Dive Panels */}
+            <View style={styles.folderTabsBar} nativeID="detail-folder-tabs">
+              {[
+                { id: 'dof' as const, label: '⊕ DOF & BOKEH', badge: formatAperture(bestDisplay.aperture) },
+                { id: 'filters' as const, label: '◐ FILTER COMPARE', badge: activeFilter.shortName },
+                { id: 'grit' as const, label: '▨ GRIT & PUSH LAB', badge: activeGritty.shortName },
+                { id: 'film' as const, label: '🎞 FILM GUIDE', badge: activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}` },
+                { id: 'all' as const, label: '⊞ ALL PANELS', badge: 'FULL SHEET' },
+              ].map((tab) => {
+                const active = activeDetailTab === tab.id;
+                return (
+                  <Pressable
+                    key={tab.id}
+                    nativeID={`tab-${tab.id}`}
+                    onPress={() => setActiveDetailTab(tab.id)}
+                    style={[styles.folderTab, active && styles.folderTabActive]}
+                  >
+                    <Text style={[styles.folderTabTitle, active && { color: C.ink }]}>
+                      {tab.label}
+                    </Text>
+                    <Text style={[styles.folderTabSub, active && { color: C.brown }]}>
+                      {tab.badge}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-            {/* Filter Compensation & Equivalent Exposures Comparison */}
-            <View style={styles.filterSection}>
-              <Text style={styles.altTitle}>LENS FILTER COMPENSATION · UV / YELLOW / RED</Text>
-              <Text style={styles.altHint}>
-                Tap a filter below to apply it across the table, or compare how UV, Yellow (#8), and Red (#25) shift your exposure & bokeh options:
-              </Text>
+            {/* TAB 1: Depth of Field & Bokeh Visualizer */}
+            {(activeDetailTab === 'dof' || activeDetailTab === 'all') && (
+              <DepthOfFieldIndicator
+                camera={camera!}
+                lens={lens!}
+                selectedAperture={bestDisplay.aperture}
+                hasApertureLock={validPreferredAperture !== undefined}
+                distanceM={focusDistanceM}
+                isHyperfocalMode={isHyperfocalMode}
+                allExposurePairs={[bestDisplay, ...r.alternatives]}
+                onSelectAperture={(ap) => {
+                  setPreferredAperture(ap);
+                  if (ap === undefined) setIsHyperfocalMode(false);
+                }}
+                onSelectDistance={handleSelectDistance}
+                onSelectHyperfocal={handleSelectHyperfocal}
+              />
+            )}
 
-              <View style={styles.filterPillRow}>
-                {lensFilters.map((f) => {
-                  const isSelected = f.id === activeFilter.id;
-                  return (
-                    <Pressable
-                      key={f.id}
-                      nativeID={`filter-${f.id}`}
-                      onPress={() => setFilterId(f.id)}
-                      style={[
-                        styles.filterPill,
-                        isSelected && { backgroundColor: f.color, borderColor: f.color },
-                      ]}
-                    >
-                      <Text style={[styles.filterPillTitle, isSelected && { color: C.ink }]}>
-                        {f.shortName}
-                      </Text>
-                      <Text style={[styles.filterPillSub, isSelected && { color: C.brown }]}>
-                        {f.factor}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+            {/* TAB 2: Filter Compensation & Equivalent Exposures Comparison */}
+            {(activeDetailTab === 'filters' || activeDetailTab === 'all') && (
+              <View style={styles.filterSection}>
+                <Text style={styles.altTitle}>LENS FILTER COMPENSATION · UV / YELLOW / RED</Text>
+                <Text style={styles.altHint}>
+                  Tap a filter below to apply it across the table, or compare how UV, Yellow (#8), and Red (#25) shift your exposure & bokeh options:
+                </Text>
 
-              <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
-                {lensFilters
-                  .filter((f) => f.id !== 'none')
-                  .map((f) => {
-                    const fr = recommend(
-                      iso,
-                      cond,
-                      camera!,
-                      lens!,
-                      f.stops + activeLightDir.stops,
-                      activeGritty.evShiftStops,
-                      undefined,
-                      prioritizeHandheld,
-                    );
-                    const allPairs = fr.best ? [fr.best, ...fr.alternatives] : [];
-                    const widest = [...allPairs].sort((a, b) => a.aperture - b.aperture)[0];
+                <View style={styles.filterPillRow}>
+                  {lensFilters.map((f) => {
                     const isSelected = f.id === activeFilter.id;
                     return (
                       <Pressable
                         key={f.id}
-                        onPress={() => setFilterId(isSelected ? 'none' : f.id)}
+                        nativeID={`filter-${f.id}`}
+                        onPress={() => setFilterId(f.id)}
                         style={[
-                          styles.filterCard,
-                          wide && { width: '48.5%' },
-                          isSelected && { borderColor: f.color, borderWidth: 2 },
+                          styles.filterPill,
+                          isSelected && { backgroundColor: f.color, borderColor: f.color },
                         ]}
                       >
-                        <View style={styles.filterCardHead}>
-                          <View style={[styles.filterDot, { backgroundColor: f.color }]} />
-                          <Text style={styles.filterCardTitle}>{f.name}</Text>
-                          <View style={[styles.filterFactorBadge, { backgroundColor: f.color }]}>
-                            <Text style={styles.filterFactorText}>{f.factor}</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.filterEffect}>{f.effect}</Text>
-                        {fr.best ? (
-                          <>
-                            <View style={styles.filterSummaryRow}>
-                              <Text style={styles.filterRecLabel}>
-                                Recommended:{' '}
-                                <Text style={styles.filterRecVal}>
-                                  {formatAperture(fr.best.aperture)} · {formatShutter(fr.best.shutter)}
-                                </Text>
-                              </Text>
-                              {widest && (
-                                <Text style={styles.filterBokehLabel}>
-                                  Max Bokeh:{' '}
-                                  <Text style={styles.filterBokehVal}>
-                                    {formatAperture(widest.aperture)} · {formatShutter(widest.shutter)}
-                                  </Text>
-                                </Text>
-                              )}
-                            </View>
-                            <View style={styles.filterEqRow}>
-                              {allPairs
-                                .sort((a, b) => a.aperture - b.aperture)
-                                .map((pair) => (
-                                  <View key={`${f.id}-${pair.shutter}`} style={styles.filterEqChip}>
-                                    <Text style={styles.filterEqAperture}>{formatAperture(pair.aperture)}</Text>
-                                    <Text style={styles.filterEqShutter}>{formatShutter(pair.shutter)}</Text>
-                                  </View>
-                                ))}
-                            </View>
-                          </>
-                        ) : (
-                          <Text style={styles.altHint}>Out of range for this camera/lens.</Text>
-                        )}
+                        <Text style={[styles.filterPillTitle, isSelected && { color: C.ink }]}>
+                          {f.shortName}
+                        </Text>
+                        <Text style={[styles.filterPillSub, isSelected && { color: C.brown }]}>
+                          {f.factor}
+                        </Text>
                       </Pressable>
                     );
                   })}
-              </View>
-            </View>
+                </View>
 
-            {/* Gritty / Street Style Section */}
-            <View style={styles.grittySection} nativeID="gritty-section">
-              <View style={styles.grittyHeaderRow}>
-                <Text style={styles.altTitle}>
-                  GRITTY / STREET STYLE · EXPOSURE & DARKROOM TWEAKS
-                </Text>
-                <View style={styles.grittyGrainBadge}>
-                  <Text style={styles.grittyGrainBadgeText}>{activeGrittyRec.grainProfile}</Text>
+                <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+                  {lensFilters
+                    .filter((f) => f.id !== 'none')
+                    .map((f) => {
+                      const fr = recommend(
+                        iso,
+                        cond,
+                        camera!,
+                        lens!,
+                        f.stops + activeLightDir.stops,
+                        activeGritty.evShiftStops,
+                        undefined,
+                        prioritizeHandheld,
+                      );
+                      const allPairs = fr.best ? [fr.best, ...fr.alternatives] : [];
+                      const widest = [...allPairs].sort((a, b) => a.aperture - b.aperture)[0];
+                      const isSelected = f.id === activeFilter.id;
+                      return (
+                        <Pressable
+                          key={f.id}
+                          onPress={() => setFilterId(isSelected ? 'none' : f.id)}
+                          style={[
+                            styles.filterCard,
+                            wide && { width: '48.5%' },
+                            isSelected && { borderColor: f.color, borderWidth: 2 },
+                          ]}
+                        >
+                          <View style={styles.filterCardHead}>
+                            <View style={[styles.filterDot, { backgroundColor: f.color }]} />
+                            <Text style={styles.filterCardTitle}>{f.name}</Text>
+                            <View style={[styles.filterFactorBadge, { backgroundColor: f.color }]}>
+                              <Text style={styles.filterFactorText}>{f.factor}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.filterEffect}>{f.effect}</Text>
+                          {fr.best ? (
+                            <>
+                              <View style={styles.filterSummaryRow}>
+                                <Text style={styles.filterRecLabel}>
+                                  Recommended:{' '}
+                                  <Text style={styles.filterRecVal}>
+                                    {formatAperture(fr.best.aperture)} · {formatShutter(fr.best.shutter)}
+                                  </Text>
+                                </Text>
+                                {widest && (
+                                  <Text style={styles.filterBokehLabel}>
+                                    Max Bokeh:{' '}
+                                    <Text style={styles.filterBokehVal}>
+                                      {formatAperture(widest.aperture)} · {formatShutter(widest.shutter)}
+                                    </Text>
+                                  </Text>
+                                )}
+                              </View>
+                              <View style={styles.filterEqRow}>
+                                {allPairs
+                                  .sort((a, b) => a.aperture - b.aperture)
+                                  .map((pair) => (
+                                    <View key={`${f.id}-${pair.shutter}`} style={styles.filterEqChip}>
+                                      <Text style={styles.filterEqAperture}>{formatAperture(pair.aperture)}</Text>
+                                      <Text style={styles.filterEqShutter}>{formatShutter(pair.shutter)}</Text>
+                                    </View>
+                                  ))}
+                              </View>
+                            </>
+                          ) : (
+                            <Text style={styles.altHint}>Out of range for this camera/lens.</Text>
+                          )}
+                        </Pressable>
+                      );
+                    })}
                 </View>
               </View>
-              <Text style={styles.altHint}>
-                Tailored to your {brands.find((b) => b.id === brandId)?.name} {camera!.name}, {lens!.name} & ISO {iso}. Tap a gritty tweak to shift the exposure table, or compare recipes below:
-              </Text>
+            )}
 
-              <View style={styles.filterPillRow}>
-                {grittyStyles.map((g) => {
-                  const isSelected = g.id === activeGritty.id;
-                  return (
-                    <Pressable
-                      key={g.id}
-                      nativeID={`gritty-${g.id}`}
-                      onPress={() => setGrittyId(g.id)}
-                      style={[
-                        styles.filterPill,
-                        isSelected && { backgroundColor: C.orange, borderColor: C.mustard },
-                      ]}
-                    >
-                      <Text style={[styles.filterPillTitle, isSelected && { color: C.paper }]}>
-                        {g.shortName}
-                      </Text>
-                      <Text style={[styles.filterPillSub, isSelected && { color: C.paperDark }]}>
-                        {g.badge}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <View style={styles.grittyGearBanner}>
-                <Text style={styles.grittyGearText}>
-                  <Text style={styles.grittyGearHighlight}>GEAR & ISO CHECK: </Text>
-                  {activeGrittyRec.isoDialNote}
+            {/* TAB 3: Gritty / Street Style Section */}
+            {(activeDetailTab === 'grit' || activeDetailTab === 'all') && (
+              <View style={styles.grittySection} nativeID="gritty-section">
+                <View style={styles.grittyHeaderRow}>
+                  <Text style={styles.altTitle}>
+                    GRITTY / STREET STYLE · EXPOSURE & DARKROOM TWEAKS
+                  </Text>
+                  <View style={styles.grittyGrainBadge}>
+                    <Text style={styles.grittyGrainBadgeText}>{activeGrittyRec.grainProfile}</Text>
+                  </View>
+                </View>
+                <Text style={styles.altHint}>
+                  Tailored to your {brands.find((b) => b.id === brandId)?.name} {camera!.name}, {lens!.name} & ISO {iso}. Tap a gritty tweak to shift the exposure table, or compare recipes below:
                 </Text>
-                <Text style={[styles.grittyGearText, { marginTop: 4 }]}>
-                  <Text style={styles.grittyGearHighlight}>ZONE FOCUS TIP: </Text>
-                  {activeGrittyRec.zoneFocusHint}
-                </Text>
-              </View>
 
-              <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
-                {grittyStyles
-                  .filter((g) => g.id !== 'off')
-                  .map((g) => {
-                    const gr = recommendGritty(iso, cond, camera!, lens!, totalPositiveStops, g);
+                <View style={styles.filterPillRow}>
+                  {grittyStyles.map((g) => {
                     const isSelected = g.id === activeGritty.id;
                     return (
                       <Pressable
                         key={g.id}
-                        nativeID={`gritty-card-${g.id}`}
-                        onPress={() => setGrittyId(isSelected ? 'off' : g.id)}
+                        nativeID={`gritty-${g.id}`}
+                        onPress={() => setGrittyId(g.id)}
                         style={[
-                          styles.grittyCard,
-                          wide && { width: '48.5%' },
-                          isSelected && { borderColor: C.orange, borderWidth: 2 },
+                          styles.filterPill,
+                          isSelected && { backgroundColor: C.orange, borderColor: C.mustard },
                         ]}
                       >
-                        <View style={styles.filterCardHead}>
-                          <View style={[styles.filterDot, { backgroundColor: C.orange }]} />
-                          <Text style={styles.filterCardTitle}>{g.name}</Text>
-                          {activeFilter.id !== 'none' && (
-                            <View style={[styles.filterFactorBadge, { backgroundColor: activeFilter.color }]}>
-                              <Text style={styles.filterFactorText}>
-                                NET {gr.netEvStops >= 0 ? `+${gr.netEvStops}` : gr.netEvStops} EV
-                              </Text>
-                            </View>
-                          )}
-                          <View style={[styles.filterFactorBadge, { backgroundColor: C.mustard }]}>
-                            <Text style={styles.filterFactorText}>EI {gr.ratedIso}</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.filterEffect}>{g.description}</Text>
-
-                        {gr.primary ? (
-                          <View style={styles.grittyMetricsBox}>
-                            <View style={styles.grittyMetricRow}>
-                              <View style={styles.grittyMetricItem}>
-                                <Text style={styles.grittyMetricLabel}>RECOMMENDED GRIT</Text>
-                                <Text style={styles.grittyMetricValue}>
-                                  {formatAperture(gr.primary.aperture)} · {formatShutter(gr.primary.shutter)}
-                                </Text>
-                              </View>
-                              {gr.zoneSetting && (
-                                <View style={styles.grittyMetricItem}>
-                                  <Text style={styles.grittyMetricLabel}>STREET ZONE (f/8–16)</Text>
-                                  <Text style={styles.grittyMetricValue}>
-                                    {formatAperture(gr.zoneSetting.aperture)} · {formatShutter(gr.zoneSetting.shutter)}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            <View style={[styles.grittyMetricRow, { marginTop: 6 }]}>
-                              {gr.bokehSetting && (
-                                <View style={styles.grittyMetricItem}>
-                                  <Text style={[styles.grittyMetricLabel, { color: C.mustard }]}>
-                                    RAW BOKEH (WIDE)
-                                  </Text>
-                                  <Text style={[styles.grittyMetricValue, { color: C.mustard }]}>
-                                    {formatAperture(gr.bokehSetting.aperture)} · {formatShutter(gr.bokehSetting.shutter)}
-                                  </Text>
-                                </View>
-                              )}
-                              {gr.dragSetting && (
-                                <View style={styles.grittyMetricItem}>
-                                  <Text style={[styles.grittyMetricLabel, { color: C.teal }]}>
-                                    MOTION DRAG (SLOW)
-                                  </Text>
-                                  <Text style={[styles.grittyMetricValue, { color: C.paper }]}>
-                                    {formatAperture(gr.dragSetting.aperture)} · {formatShutter(gr.dragSetting.shutter)}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          </View>
-                        ) : (
-                          <Text style={styles.altHint}>Out of shutter/aperture range on this gear.</Text>
-                        )}
-
-                        <Text style={styles.grittyLabNote}>
-                          <Text style={{ color: C.mustard }}>LAB / DEV: </Text>
-                          {gr.labNote}
+                        <Text style={[styles.filterPillTitle, isSelected && { color: C.paper }]}>
+                          {g.shortName}
                         </Text>
-                        <Text style={styles.grittyFilterNote}>
-                          <Text style={{ color: C.teal }}>BEST FILTER PAIRING: </Text>
-                          {g.recommendedFilter} · {gr.grainProfile}
+                        <Text style={[styles.filterPillSub, isSelected && { color: C.paperDark }]}>
+                          {g.badge}
                         </Text>
                       </Pressable>
                     );
                   })}
+                </View>
+
+                <View style={styles.grittyGearBanner}>
+                  <Text style={styles.grittyGearText}>
+                    <Text style={styles.grittyGearHighlight}>GEAR & ISO CHECK: </Text>
+                    {activeGrittyRec.isoDialNote}
+                  </Text>
+                  <Text style={[styles.grittyGearText, { marginTop: 4 }]}>
+                    <Text style={styles.grittyGearHighlight}>ZONE FOCUS TIP: </Text>
+                    {activeGrittyRec.zoneFocusHint}
+                  </Text>
+                </View>
+
+                <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+                  {grittyStyles
+                    .filter((g) => g.id !== 'off')
+                    .map((g) => {
+                      const gr = recommendGritty(iso, cond, camera!, lens!, totalPositiveStops, g);
+                      const isSelected = g.id === activeGritty.id;
+                      return (
+                        <Pressable
+                          key={g.id}
+                          nativeID={`gritty-card-${g.id}`}
+                          onPress={() => setGrittyId(isSelected ? 'off' : g.id)}
+                          style={[
+                            styles.grittyCard,
+                            wide && { width: '48.5%' },
+                            isSelected && { borderColor: C.orange, borderWidth: 2 },
+                          ]}
+                        >
+                          <View style={styles.filterCardHead}>
+                            <View style={[styles.filterDot, { backgroundColor: C.orange }]} />
+                            <Text style={styles.filterCardTitle}>{g.name}</Text>
+                            {activeFilter.id !== 'none' && (
+                              <View style={[styles.filterFactorBadge, { backgroundColor: activeFilter.color }]}>
+                                <Text style={styles.filterFactorText}>
+                                  NET {gr.netEvStops >= 0 ? `+${gr.netEvStops}` : gr.netEvStops} EV
+                                </Text>
+                              </View>
+                            )}
+                            <View style={[styles.filterFactorBadge, { backgroundColor: C.mustard }]}>
+                              <Text style={styles.filterFactorText}>EI {gr.ratedIso}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.filterEffect}>{g.description}</Text>
+
+                          {gr.primary ? (
+                            <View style={styles.grittyMetricsBox}>
+                              <View style={styles.grittyMetricRow}>
+                                <View style={styles.grittyMetricItem}>
+                                  <Text style={styles.grittyMetricLabel}>RECOMMENDED GRIT</Text>
+                                  <Text style={styles.grittyMetricValue}>
+                                    {formatAperture(gr.primary.aperture)} · {formatShutter(gr.primary.shutter)}
+                                  </Text>
+                                </View>
+                                {gr.zoneSetting && (
+                                  <View style={styles.grittyMetricItem}>
+                                    <Text style={styles.grittyMetricLabel}>STREET ZONE (f/8–16)</Text>
+                                    <Text style={styles.grittyMetricValue}>
+                                      {formatAperture(gr.zoneSetting.aperture)} · {formatShutter(gr.zoneSetting.shutter)}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                              <View style={[styles.grittyMetricRow, { marginTop: 6 }]}>
+                                {gr.bokehSetting && (
+                                  <View style={styles.grittyMetricItem}>
+                                    <Text style={[styles.grittyMetricLabel, { color: C.mustard }]}>
+                                      RAW BOKEH (WIDE)
+                                    </Text>
+                                    <Text style={[styles.grittyMetricValue, { color: C.mustard }]}>
+                                      {formatAperture(gr.bokehSetting.aperture)} · {formatShutter(gr.bokehSetting.shutter)}
+                                    </Text>
+                                  </View>
+                                )}
+                                {gr.dragSetting && (
+                                  <View style={styles.grittyMetricItem}>
+                                    <Text style={[styles.grittyMetricLabel, { color: C.teal }]}>
+                                      MOTION DRAG (SLOW)
+                                    </Text>
+                                    <Text style={[styles.grittyMetricValue, { color: C.paper }]}>
+                                      {formatAperture(gr.dragSetting.aperture)} · {formatShutter(gr.dragSetting.shutter)}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                          ) : (
+                            <Text style={styles.altHint}>Out of shutter/aperture range on this gear.</Text>
+                          )}
+
+                          <Text style={styles.grittyLabNote}>
+                            <Text style={{ color: C.mustard }}>LAB / DEV: </Text>
+                            {gr.labNote}
+                          </Text>
+                          <Text style={styles.grittyFilterNote}>
+                            <Text style={{ color: C.teal }}>BEST FILTER PAIRING: </Text>
+                            {g.recommendedFilter} · {gr.grainProfile}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                </View>
               </View>
-            </View>
+            )}
+
+            {/* TAB 4: Film Stock Latitude & Emulsion Guide */}
+            {(activeDetailTab === 'film' || activeDetailTab === 'all') && (
+              <View style={styles.filterSection} nativeID="film-guide-tab">
+                <Text style={styles.altTitle}>CLASSIC FILM STOCK & EMULSION LATITUDE GUIDE</Text>
+                <Text style={styles.altHint}>
+                  Tap any film stock below to load its ISO and inspect its highlight/shadow latitude, grain profile & field advice:
+                </Text>
+                <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+                  {filmStocks.map((stock) => {
+                    const isSelected = activeFilmStock?.id === stock.id;
+                    return (
+                      <Pressable
+                        key={`tab-stock-${stock.id}`}
+                        onPress={() => {
+                          setIso(stock.iso);
+                          setFilmStockId(stock.id);
+                        }}
+                        style={[
+                          styles.filterCard,
+                          wide && { width: '48.5%' },
+                          isSelected && { borderColor: C.mustard, borderWidth: 2 },
+                        ]}
+                      >
+                        <View style={styles.filterCardHead}>
+                          <Text style={styles.filterCardTitle}>{stock.name}</Text>
+                          <View style={[styles.filterFactorBadge, { backgroundColor: C.mustard }]}>
+                            <Text style={styles.filterFactorText}>ISO {stock.iso}</Text>
+                          </View>
+                          <View style={[styles.filterFactorBadge, { backgroundColor: C.teal }]}>
+                            <Text style={[styles.filterFactorText, { color: C.paper }]}>
+                              +{stock.latitudeOverStops}/−{stock.latitudeUnderStops} EV
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.filterEffect, { color: C.mustard }]}>
+                          {stock.process} · Grain: {stock.grain}
+                        </Text>
+                        <Text style={styles.filterEffect}>{stock.character}</Text>
+                        <Text style={[styles.grittyLabNote, { marginTop: 4 }]}>
+                          <Text style={{ color: C.orange }}>FIELD TIP: </Text>
+                          {stock.fieldTip}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
           </>
         ) : (
           <Text style={styles.body}>No usable combination on this camera/lens.</Text>
@@ -1496,4 +1919,322 @@ const styles = StyleSheet.create({
 
   body: { fontFamily: type, fontSize: 13, color: C.ink },
   footer: { fontFamily: type, fontSize: 11, color: C.brown, textAlign: 'center', marginTop: 20 },
+
+  // --- UX UPGRADE 1: COLLAPSIBLE RIG LOCKER BAR ---
+  rigLockerBar: {
+    marginTop: 12,
+    borderWidth: 3,
+    borderColor: C.ink,
+    backgroundColor: C.paperDark,
+    padding: 12,
+    gap: 10,
+  },
+  rigLockerTopRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  rigLockerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 200,
+  },
+  rigBadgeIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: C.mustard,
+  },
+  rigBadgeIconText: {
+    fontFamily: display,
+    fontSize: 16,
+    color: C.mustard,
+  },
+  rigLockerTitle: {
+    fontFamily: display,
+    fontSize: 22,
+    color: C.ink,
+    letterSpacing: 1.5,
+  },
+  rigLockerSub: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.brown,
+  },
+  rigCollapseBtn: {
+    borderWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.mustard,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  rigCollapseBtnText: {
+    fontFamily: display,
+    fontSize: 15,
+    color: C.ink,
+    letterSpacing: 1.2,
+  },
+  rigCardsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  rigSummaryCard: {
+    flex: 1,
+    minWidth: 140,
+    borderWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    padding: 8,
+  },
+  rigCardStep: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.brown,
+    letterSpacing: 0.6,
+  },
+  rigCardVal: {
+    fontFamily: display,
+    fontSize: 20,
+    color: C.ink,
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  rigCardSub: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.brown,
+    marginTop: 1,
+  },
+  lockRigBottomBanner: {
+    marginTop: 14,
+    borderWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.ink,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  lockRigBottomText: {
+    fontFamily: display,
+    fontSize: 17,
+    color: C.mustard,
+    letterSpacing: 1.5,
+    textAlign: 'center',
+  },
+
+  // --- UX UPGRADE 2: DECADE PILLS & CAMERA SEARCH ---
+  cameraFilterBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 10,
+    padding: 8,
+    backgroundColor: C.paperDark,
+    borderWidth: 1.5,
+    borderColor: C.ink,
+  },
+  decadePillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  decadePill: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  decadePillActive: {
+    backgroundColor: C.ink,
+  },
+  decadePillText: {
+    fontFamily: display,
+    fontSize: 14,
+    color: C.ink,
+    letterSpacing: 0.8,
+  },
+  searchBoxWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingHorizontal: 8,
+    minWidth: 180,
+    flex: 1,
+    maxWidth: 280,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: type,
+    fontSize: 12,
+    color: C.ink,
+    paddingVertical: 5,
+  },
+  searchClearBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  searchClearText: {
+    fontFamily: display,
+    fontSize: 14,
+    color: C.brown,
+  },
+
+  // --- UX UPGRADE 3: LIVE VIEWFINDER HERO STRIP ---
+  viewfinderHeroStrip: {
+    backgroundColor: C.ink,
+    borderBottomWidth: 3,
+    borderColor: C.ink,
+    padding: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  viewfinderSceneCol: {
+    flex: 1,
+    minWidth: 180,
+  },
+  viewfinderKicker: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.mustard,
+    letterSpacing: 0.8,
+  },
+  viewfinderSceneTitle: {
+    fontFamily: display,
+    fontSize: 28,
+    color: C.paper,
+    letterSpacing: 1.5,
+    marginTop: 2,
+  },
+  viewfinderSceneSub: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.paperDark,
+    marginTop: 2,
+  },
+  viewfinderDialsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  viewfinderDialBox: {
+    backgroundColor: C.teal,
+    borderWidth: 2,
+    borderColor: C.paper,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    alignItems: 'center',
+    minWidth: 88,
+  },
+  viewfinderDialLabel: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.ink,
+    letterSpacing: 0.5,
+  },
+  viewfinderDialVal: {
+    fontFamily: display,
+    fontSize: 34,
+    lineHeight: 36,
+    color: C.paper,
+    letterSpacing: 1,
+  },
+  viewfinderShakePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1.5,
+    borderColor: C.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewfinderShakeText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.paper,
+    letterSpacing: 0.8,
+  },
+
+  // --- UX UPGRADE 4: QUICK IN-FIELD TWEAKS & 1968 FOLDER TABS ---
+  quickTweaksBox: {
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: '#262019',
+    borderWidth: 1,
+    borderColor: '#4A4035',
+    gap: 8,
+  },
+  quickTweakCol: {
+    gap: 4,
+  },
+  quickTweakLabel: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.mustard,
+    letterSpacing: 0.6,
+  },
+  quickMiniPill: {
+    borderWidth: 1,
+    borderColor: '#5A4E40',
+    backgroundColor: C.ink,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  quickMiniPillText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.paper,
+    letterSpacing: 0.8,
+  },
+  folderTabsBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 18,
+    paddingTop: 14,
+    borderTopWidth: 2,
+    borderColor: C.mustard,
+  },
+  folderTab: {
+    flex: 1,
+    minWidth: 115,
+    borderWidth: 1.5,
+    borderColor: C.paperDark,
+    backgroundColor: '#262019',
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  folderTabActive: {
+    backgroundColor: C.mustard,
+    borderColor: C.paper,
+  },
+  folderTabTitle: {
+    fontFamily: display,
+    fontSize: 15,
+    color: C.paper,
+    letterSpacing: 1,
+  },
+  folderTabSub: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.paperDark,
+    marginTop: 1,
+  },
 });
