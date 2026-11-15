@@ -7,7 +7,7 @@ import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite';
 import { brands } from './data/brands';
 import { cameras } from './data/cameras';
 import { lenses } from './data/lenses';
-import { films } from './data/films';
+import { films, filmStocks, FilmStock } from './data/films';
 import {
   conditions,
   recommend,
@@ -20,6 +20,10 @@ import {
   FilterId,
   grittyStyles,
   GrittyStyleId,
+  lightDirections,
+  LightDirectionId,
+  evaluateHandheldSafety,
+  get35mmEquivalentFocalLength,
 } from './lib/exposure';
 import WeatherIcon from './components/WeatherIcon';
 import DepthOfFieldIndicator from './components/DepthOfFieldIndicator';
@@ -71,6 +75,10 @@ export default function App() {
   const wide = width > 760;
 
   const [iso, setIso] = useState(400);
+  const [filmStockId, setFilmStockId] = useState<string | undefined>('portra-400');
+  const activeFilmStock: FilmStock | undefined = filmStocks.find(
+    (s) => s.id === filmStockId && s.iso === iso,
+  );
   const [brandId, setBrandId] = useState(brands[0].id);
   const brandCameras = useMemo(() => cameras.filter((c) => c.brandId === brandId), [brandId]);
   const [cameraId, setCameraId] = useState<string | undefined>(brandCameras[0]?.id);
@@ -94,11 +102,17 @@ export default function App() {
   const [conditionId, setConditionId] = useState<Condition['id']>('sunny');
   const [filterId, setFilterId] = useState<FilterId>('none');
   const activeFilter = lensFilters.find((f) => f.id === filterId) ?? lensFilters[0];
+  const [lightDirId, setLightDirId] = useState<LightDirectionId>('front');
+  const activeLightDir = lightDirections.find((d) => d.id === lightDirId) ?? lightDirections[0];
   const [grittyId, setGrittyId] = useState<GrittyStyleId>('off');
   const activeGritty = grittyStyles.find((g) => g.id === grittyId) ?? grittyStyles[0];
   const [preferredAperture, setPreferredAperture] = useState<number | undefined>();
   const [focusDistanceM, setFocusDistanceM] = useState<number>(3.0);
   const [isHyperfocalMode, setIsHyperfocalMode] = useState<boolean>(false);
+  const [prioritizeHandheld, setPrioritizeHandheld] = useState<boolean>(false);
+  const [sceneCategory, setSceneCategory] = useState<'all' | 'daylight' | 'lowlight'>('all');
+
+  const totalPositiveStops = activeFilter.stops + activeLightDir.stops;
 
   const validPreferredAperture =
     preferredAperture !== undefined && lens?.apertures.includes(preferredAperture)
@@ -113,9 +127,10 @@ export default function App() {
       activeCondition,
       camera,
       lens,
-      activeFilter.stops,
+      totalPositiveStops,
       activeGritty.evShiftStops,
       validPreferredAperture,
+      prioritizeHandheld,
     );
     return rec.best?.aperture ?? validPreferredAperture;
   }, [
@@ -124,8 +139,9 @@ export default function App() {
     activeCondition,
     camera,
     lens,
-    activeFilter.stops,
+    totalPositiveStops,
     activeGritty.evShiftStops,
+    prioritizeHandheld,
   ]);
 
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: C.paper }} />;
@@ -139,16 +155,19 @@ export default function App() {
 
   const hasActiveTweaks =
     filterId !== 'none' ||
+    lightDirId !== 'front' ||
     grittyId !== 'off' ||
     validPreferredAperture !== undefined ||
     focusDistanceM !== 3.0 ||
     isHyperfocalMode ||
+    prioritizeHandheld ||
     conditionId !== 'sunny';
 
   const defaultBrandId = brands[0].id;
   const defaultCameraId = cameras.find((c) => c.brandId === defaultBrandId)?.id;
   const isDefaultGear =
     iso === 400 &&
+    filmStockId === 'portra-400' &&
     brandId === defaultBrandId &&
     camera?.id === defaultCameraId &&
     (lensId === undefined || lensId === cameraLenses[0]?.id);
@@ -156,14 +175,18 @@ export default function App() {
   const resetTweaksToSunny16 = () => {
     setConditionId('sunny');
     setFilterId('none');
+    setLightDirId('front');
     setGrittyId('off');
     setPreferredAperture(undefined);
     setFocusDistanceM(3.0);
     setIsHyperfocalMode(false);
+    setPrioritizeHandheld(false);
+    setSceneCategory('all');
   };
 
   const resetFullBoard = () => {
     setIso(400);
+    setFilmStockId('portra-400');
     setBrandId(defaultBrandId);
     setCameraId(defaultCameraId);
     setLensId(undefined);
@@ -180,16 +203,95 @@ export default function App() {
             {[C.mustard, C.orange, C.brown, C.teal].map((c) => <View key={c} style={[styles.stripe, { backgroundColor: c }]} />)}
           </View>
           <View style={styles.masthead}>
-            <Text style={styles.kicker}>THE ANALOG PHOTOGRAPHER'S POCKET GUIDE · NO. 16</Text>
+            <Text style={styles.kicker}>THE ANALOG PHOTOGRAPHER&apos;S POCKET GUIDE · NO. 16</Text>
             <Text style={styles.title} accessibilityRole="header">SUNNY 16</Text>
-            <Text style={styles.tagline}>"Set shutter speed closest to the film speed"</Text>
+            <Text style={styles.tagline}>&quot;Set shutter speed closest to the film speed&quot;</Text>
           </View>
 
-          <Section step="1" title="Film Speed · ISO / ASA">
+          <Section step="1" title="Film Speed · ISO / ASA & Classic Film Stocks">
             {films.map((f) => (
-              <Chip key={f.iso} id={`iso-${f.iso}`} label={`${f.iso}`} sub={f.label.split('/ ')[1]} active={iso === f.iso} onPress={() => setIso(f.iso)} />
+              <Chip
+                key={f.iso}
+                id={`iso-${f.iso}`}
+                label={`${f.iso}`}
+                sub={f.label.split('/ ')[1]}
+                active={iso === f.iso}
+                onPress={() => {
+                  setIso(f.iso);
+                  const matchingStock = filmStocks.find((s) => s.iso === f.iso);
+                  setFilmStockId(matchingStock?.id);
+                }}
+              />
             ))}
           </Section>
+
+          {/* Classic Film Stock Presets & Latitude Guide */}
+          <View style={styles.filmStockBox} nativeID="film-stock-presets">
+            <Text style={styles.filmStockHeaderLabel}>
+              CLASSIC FILM STOCK PRESETS (TAP TO LOAD ISO & LATITUDE GUIDE):
+            </Text>
+            <View style={styles.chipRow}>
+              <Pressable
+                nativeID="stock-generic"
+                onPress={() => setFilmStockId(undefined)}
+                style={[styles.stockPill, !activeFilmStock && styles.stockPillActive]}
+              >
+                <Text style={[styles.stockPillTitle, !activeFilmStock && { color: C.paper }]}>
+                  GENERIC ISO {iso}
+                </Text>
+                <Text style={[styles.stockPillSub, !activeFilmStock && { color: C.paperDark }]}>
+                  STANDARD CURVE
+                </Text>
+              </Pressable>
+              {filmStocks.map((stock) => {
+                const active = activeFilmStock?.id === stock.id;
+                return (
+                  <Pressable
+                    key={stock.id}
+                    nativeID={`stock-${stock.id}`}
+                    onPress={() => {
+                      setIso(stock.iso);
+                      setFilmStockId(stock.id);
+                    }}
+                    style={[styles.stockPill, active && styles.stockPillActive]}
+                  >
+                    <Text style={[styles.stockPillTitle, active && { color: C.paper }]}>
+                      {stock.shortName}
+                    </Text>
+                    <Text style={[styles.stockPillSub, active && { color: C.mustard }]}>
+                      ISO {stock.iso} · {stock.process.split(' ')[0]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {activeFilmStock && (
+              <View style={styles.filmStockBanner}>
+                <View style={styles.filmStockBannerHead}>
+                  <Text style={styles.filmStockBannerTitle}>
+                    {activeFilmStock.name.toUpperCase()} · {activeFilmStock.process.toUpperCase()}
+                  </Text>
+                  <View style={styles.filmStockBadgesRow}>
+                    <View style={styles.filmLatitudeBadge}>
+                      <Text style={styles.filmLatitudeBadgeText}>
+                        LATITUDE: +{activeFilmStock.latitudeOverStops} / −{activeFilmStock.latitudeUnderStops} EV
+                      </Text>
+                    </View>
+                    <View style={[styles.filmLatitudeBadge, { backgroundColor: C.teal }]}>
+                      <Text style={[styles.filmLatitudeBadgeText, { color: C.paper }]}>
+                        GRAIN: {activeFilmStock.grain.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.filmStockCharText}>{activeFilmStock.character}</Text>
+                <Text style={styles.filmStockTipText}>
+                  <Text style={{ fontFamily: display, color: C.orange, fontSize: 13 }}>FIELD TIP: </Text>
+                  {activeFilmStock.fieldTip}
+                </Text>
+              </View>
+            )}
+          </View>
 
           <Section step="2" title="Camera Brand">
             {brands.map((b) => (
@@ -207,9 +309,23 @@ export default function App() {
             {cameraLenses.length === 0 ? (
               <Text style={styles.body}>No lenses listed for this mount yet — add one in data/lenses.ts</Text>
             ) : (
-              cameraLenses.map((l) => (
-                <Chip key={l.id} id={`lens-${l.id}`} label={l.name} sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}`} active={lens?.id === l.id} onPress={() => { setLensId(l.id); setPreferredAperture(undefined); }} />
-              ))
+              cameraLenses.map((l) => {
+                const eqMm = camera ? get35mmEquivalentFocalLength(camera, l) : l.focalLength;
+                const eqSuffix = eqMm !== l.focalLength ? ` · ≈${eqMm}mm eq.` : '';
+                return (
+                  <Chip
+                    key={l.id}
+                    id={`lens-${l.id}`}
+                    label={l.name}
+                    sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}${eqSuffix}`}
+                    active={lens?.id === l.id}
+                    onPress={() => {
+                      setLensId(l.id);
+                      setPreferredAperture(undefined);
+                    }}
+                  />
+                );
+              })
             )}
           </Section>
 
@@ -231,9 +347,12 @@ export default function App() {
                   </Text>
                 </View>
                 <Text style={styles.controlBarSub}>
-                  ISO {iso} · {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
+                  {activeFilmStock ? `${activeFilmStock.name} (ISO ${iso})` : `ISO ${iso}`} ·{' '}
+                  {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
+                  {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
                   {filterId !== 'none' ? ` · ${activeFilter.shortName}` : ''}
                   {grittyId !== 'off' ? ` · ${activeGritty.shortName}` : ''}
+                  {prioritizeHandheld ? ' · 1/f Guard' : ''}
                   {lightConditionedAperture !== undefined
                     ? ` · Lock ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})`
                     : ''}
@@ -304,6 +423,17 @@ export default function App() {
                       </Text>
                     </Pressable>
                   )}
+                  {lightDirId !== 'front' && (
+                    <Pressable
+                      nativeID="reset-light-dir"
+                      onPress={() => setLightDirId('front')}
+                      style={[styles.isoBox, { backgroundColor: C.mustard }]}
+                    >
+                      <Text style={styles.isoBoxText}>
+                        {activeLightDir.shortName} ✕
+                      </Text>
+                    </Pressable>
+                  )}
                   {activeGritty.id !== 'off' && (
                     <View style={[styles.isoBox, { backgroundColor: C.orange }]}>
                       <Text style={[styles.isoBoxText, { color: C.paper }]}>
@@ -317,54 +447,174 @@ export default function App() {
                     </View>
                   )}
                   <View style={styles.isoBox}>
-                    <Text style={styles.isoBoxText}>ISO {iso}</Text>
+                    <Text style={styles.isoBoxText}>
+                      {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}
+                    </Text>
                   </View>
                 </View>
               </View>
               <Text style={styles.cameraLine}>
                 {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
+                {get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
+                  ? ` (≈${get35mmEquivalentFocalLength(camera, lens)}mm 35mm-eq)`
+                  : ''}
+                {activeFilmStock ? ` · ${activeFilmStock.name}` : ''}
+                {lightDirId !== 'front' ? ` · ${activeLightDir.name}` : ''}
                 {activeFilter.id !== 'none' ? ` · ${activeFilter.name}` : ''}
                 {activeGritty.id !== 'off' ? ` · ${activeGritty.name}` : ''}
                 {lightConditionedAperture !== undefined ? ` · Priority: ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})` : ''}
               </Text>
 
-              <View style={[styles.grid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
-                {conditions.map((cond) => {
-                  const r = recommend(
-                    iso,
-                    cond,
-                    camera,
-                    lens,
-                    activeFilter.stops,
-                    activeGritty.evShiftStops,
-                    validPreferredAperture,
-                  );
-                  const gr =
-                    activeGritty.id === 'kinetic' && validPreferredAperture === undefined
-                      ? recommendGritty(iso, cond, camera, lens, activeFilter.stops, activeGritty)
-                      : null;
-                  const cellBest = gr?.dragSetting ?? r.best;
-                  const active = cond.id === conditionId;
-                  return (
-                    <Pressable
-                      key={cond.id}
-                      nativeID={`condition-${cond.id}`}
-                      onPress={() => setConditionId(cond.id)}
-                      style={[styles.cell, wide && { width: '33.333%' }, active && styles.cellActive]}
-                    >
-                      <View style={styles.iconBox}><WeatherIcon id={cond.id} size={44} /></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.condTitle}>{cond.title}</Text>
-                        <Text style={styles.condHint}>{cond.hint}</Text>
-                        {cellBest ? (
-                          <Text style={styles.condValue}>
-                            {formatAperture(cellBest.aperture)} · {formatShutter(cellBest.shutter)}
+              {/* Subject Light Direction & Scene / Handheld Toolbar */}
+              <View style={styles.fieldToolbar} nativeID="field-toolbar">
+                <View style={styles.toolbarGroup}>
+                  <Text style={styles.toolbarLabel}>
+                    SUBJECT LIGHT DIRECTION (SHADOW / BACKLIGHT COMPENSATION):
+                  </Text>
+                  <View style={styles.toolbarRow}>
+                    {lightDirections.map((dir) => {
+                      const active = dir.id === lightDirId;
+                      return (
+                        <Pressable
+                          key={dir.id}
+                          nativeID={`light-dir-${dir.id}`}
+                          onPress={() => setLightDirId(dir.id)}
+                          style={[styles.dirPill, active && styles.dirPillActive]}
+                        >
+                          <Text style={[styles.dirPillTitle, active && { color: C.paper }]}>
+                            {dir.shortName}
                           </Text>
-                        ) : null}
-                      </View>
+                          <Text style={[styles.dirPillSub, active && { color: C.mustard }]}>
+                            {dir.badge}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.toolbarGroup}>
+                  <Text style={styles.toolbarLabel}>
+                    SCENE RANGE & HANDHELD 1/F CAMERA-SHAKE GUARD:
+                  </Text>
+                  <View style={styles.toolbarRow}>
+                    {[
+                      { id: 'all' as const, label: 'ALL SCENES (10)' },
+                      { id: 'daylight' as const, label: 'DAYLIGHT (6)' },
+                      { id: 'lowlight' as const, label: 'GOLDEN / INDOOR / NIGHT (4)' },
+                    ].map((tab) => {
+                      const active = sceneCategory === tab.id;
+                      return (
+                        <Pressable
+                          key={tab.id}
+                          nativeID={`scene-tab-${tab.id}`}
+                          onPress={() => setSceneCategory(tab.id)}
+                          style={[styles.sceneTabPill, active && styles.sceneTabPillActive]}
+                        >
+                          <Text style={[styles.sceneTabText, active && { color: C.paper }]}>
+                            {tab.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable
+                      nativeID="toggle-handheld-guard"
+                      onPress={() => setPrioritizeHandheld((v) => !v)}
+                      style={[
+                        styles.handheldTogglePill,
+                        prioritizeHandheld && styles.handheldTogglePillActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.handheldToggleText,
+                          prioritizeHandheld && { color: C.paper },
+                        ]}
+                      >
+                        ✋ 1/F HANDHELD PRIORITY: {prioritizeHandheld ? 'ON' : 'OFF'}
+                      </Text>
                     </Pressable>
-                  );
-                })}
+                  </View>
+                </View>
+              </View>
+
+              <View style={[styles.grid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+                {conditions
+                  .filter((cond) => sceneCategory === 'all' || cond.category === sceneCategory)
+                  .map((cond) => {
+                    const r = recommend(
+                      iso,
+                      cond,
+                      camera,
+                      lens,
+                      totalPositiveStops,
+                      activeGritty.evShiftStops,
+                      validPreferredAperture,
+                      prioritizeHandheld,
+                    );
+                    const gr =
+                      activeGritty.id === 'kinetic' && validPreferredAperture === undefined
+                        ? recommendGritty(iso, cond, camera, lens, totalPositiveStops, activeGritty)
+                        : null;
+                    const cellBest = gr?.dragSetting ?? r.best;
+                    const active = cond.id === conditionId;
+                    const shake = cellBest
+                      ? evaluateHandheldSafety(cellBest.shutter, camera, lens)
+                      : null;
+                    return (
+                      <Pressable
+                        key={cond.id}
+                        nativeID={`condition-${cond.id}`}
+                        onPress={() => setConditionId(cond.id)}
+                        style={[
+                          styles.cell,
+                          wide && { width: '33.333%' },
+                          cond.category === 'lowlight' && !active && styles.cellLowLight,
+                          active && styles.cellActive,
+                        ]}
+                      >
+                        <View style={styles.iconBox}><WeatherIcon id={cond.id} size={44} /></View>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.condTitleRow}>
+                            <Text style={styles.condTitle}>{cond.title}</Text>
+                            {cond.category === 'lowlight' && (
+                              <View style={styles.lowLightTag}>
+                                <Text style={styles.lowLightTagText}>LOW LIGHT</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.condHint}>{cond.hint}</Text>
+                          {cellBest ? (
+                            <View style={styles.condValueRow}>
+                              <Text style={styles.condValue}>
+                                {formatAperture(cellBest.aperture)} · {formatShutter(cellBest.shutter)}
+                              </Text>
+                              {shake && (
+                                <View
+                                  style={[
+                                    styles.cellShakeBadge,
+                                    shake.status === 'safe'
+                                      ? { backgroundColor: C.teal }
+                                      : shake.status === 'borderline'
+                                      ? { backgroundColor: C.brown }
+                                      : { backgroundColor: C.orange },
+                                  ]}
+                                >
+                                  <Text style={styles.cellShakeText}>
+                                    {shake.status === 'safe'
+                                      ? '✓ SAFE'
+                                      : shake.status === 'borderline'
+                                      ? '⚠ BRACE'
+                                      : '▲ TRIPOD'}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          ) : null}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
               </View>
 
               <Result iso={iso} conditionId={conditionId} />
@@ -386,17 +636,27 @@ export default function App() {
       cond,
       camera!,
       lens!,
-      activeFilter.stops,
+      totalPositiveStops,
       activeGritty.evShiftStops,
       validPreferredAperture,
+      prioritizeHandheld,
     );
-    const rAuto = recommend(iso, cond, camera!, lens!, activeFilter.stops, activeGritty.evShiftStops);
+    const rAuto = recommend(
+      iso,
+      cond,
+      camera!,
+      lens!,
+      totalPositiveStops,
+      activeGritty.evShiftStops,
+      undefined,
+      prioritizeHandheld,
+    );
     const activeGrittyRec = recommendGritty(
       iso,
       cond,
       camera!,
       lens!,
-      activeFilter.stops,
+      totalPositiveStops,
       activeGritty.id === 'off' ? grittyStyles[1] : activeGritty,
     );
     const bestDisplay =
@@ -405,6 +665,10 @@ export default function App() {
         : r.best;
     const dofLabel = (aperture: number) =>
       aperture <= 2.8 ? 'SHALLOW / BOKEH' : aperture <= 8 ? 'BALANCED DOF' : 'DEEP FOCUS';
+
+    const handheldSafety = bestDisplay
+      ? evaluateHandheldSafety(bestDisplay.shutter, camera!, lens!)
+      : null;
 
     const pickClosestValidAperture = (targetAp: number): number => {
       const validPool = [
@@ -432,6 +696,7 @@ export default function App() {
       <View style={styles.result} nativeID="result-panel">
         <Text style={styles.resultKicker}>
           RECOMMENDED SETTING · {cond.title.toUpperCase()}
+          {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
           {activeFilter.id !== 'none' ? ` · ${activeFilter.shortName} (${activeFilter.factor})` : ''}
           {activeGritty.id !== 'off' ? ` · ${activeGritty.shortName}` : ''}
           {validPreferredAperture !== undefined && bestDisplay
@@ -450,19 +715,82 @@ export default function App() {
                 <Text style={styles.bigValue}>{formatShutter(bestDisplay.shutter)}</Text>
               </View>
             </View>
+
+            {/* Handheld 1/FocalLength Camera-Shake Indicator */}
+            {handheldSafety && (
+              <View
+                style={[
+                  styles.handheldBanner,
+                  handheldSafety.status === 'safe'
+                    ? { borderColor: C.teal }
+                    : handheldSafety.status === 'borderline'
+                    ? { borderColor: C.mustard }
+                    : { borderColor: C.orange },
+                ]}
+                nativeID="handheld-safety-banner"
+              >
+                <View style={styles.handheldBannerRow}>
+                  <View
+                    style={[
+                      styles.handheldBadgeBox,
+                      handheldSafety.status === 'safe'
+                        ? { backgroundColor: C.teal }
+                        : handheldSafety.status === 'borderline'
+                        ? { backgroundColor: C.mustard }
+                        : { backgroundColor: C.orange },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.handheldBadgeText,
+                        handheldSafety.status === 'borderline' ? { color: C.ink } : { color: C.paper },
+                      ]}
+                    >
+                      {handheldSafety.badge}
+                    </Text>
+                  </View>
+                  <Text style={styles.handheldDetailText}>{handheldSafety.detail}</Text>
+                  {handheldSafety.status !== 'safe' &&
+                    r.handheldSafeSetting &&
+                    r.handheldSafeSetting.shutter < bestDisplay.shutter && (
+                      <Pressable
+                        nativeID="btn-jump-handheld-safe"
+                        onPress={() => setPreferredAperture(r.handheldSafeSetting!.aperture)}
+                        style={styles.handheldJumpBtn}
+                      >
+                        <Text style={styles.handheldJumpBtnText}>
+                          USE SAFE SHUTTER ({formatAperture(r.handheldSafeSetting.aperture)} ·{' '}
+                          {formatShutter(r.handheldSafeSetting.shutter)}) →
+                        </Text>
+                      </Pressable>
+                    )}
+                </View>
+              </View>
+            )}
+
             <Text style={styles.resultNote}>
               Pure Sunny 16
+              {lightDirId !== 'front' ? ` (+${activeLightDir.stops} EV ${activeLightDir.id}lit)` : ''}
               {activeFilter.stops > 0 ? ` (+${activeFilter.stops} EV filter)` : ''}
               {activeGritty.evShiftStops !== 0
                 ? ` (${activeGritty.evShiftStops} EV gritty shift · EI ${Math.round(iso * 2 ** -activeGritty.evShiftStops)})`
                 : ''}
               : {formatAperture(r.ideal.aperture)} @ {formatShutter(r.ideal.shutter)} · On your gear:{' '}
               {formatError(bestDisplay.errorStops)}
+              {activeFilmStock
+                ? ` · ${activeFilmStock.shortName} Latitude (+${activeFilmStock.latitudeOverStops}/−${activeFilmStock.latitudeUnderStops} EV): ${
+                    bestDisplay.errorStops <= activeFilmStock.latitudeOverStops &&
+                    bestDisplay.errorStops >= -activeFilmStock.latitudeUnderStops
+                      ? 'WITHIN SAFE FILM LATITUDE'
+                      : 'OUTSIDE FILM LATITUDE — BRACKET / ADJUST'
+                  }`
+                : ''}
             </Text>
-            {(activeFilter.id !== 'none' || activeGritty.id !== 'off') && (
+            {(activeFilter.id !== 'none' || lightDirId !== 'front' || activeGritty.id !== 'off') && (
               <View style={styles.cumulativeBanner}>
                 <Text style={styles.cumulativeText}>
                   <Text style={styles.grittyGearHighlight}>CUMULATIVE MATH: </Text>
+                  {lightDirId !== 'front' ? `Light Dir (${activeLightDir.shortName}: +${activeLightDir.stops} EV) + ` : ''}
                   Filter ({activeFilter.shortName}: +{activeFilter.stops} EV) + Gritty ({activeGritty.shortName}:{' '}
                   {activeGritty.evShiftStops >= 0 ? `+${activeGritty.evShiftStops}` : activeGritty.evShiftStops} EV) ={' '}
                   <Text style={{ color: C.mustard, fontFamily: display, fontSize: 14 }}>
@@ -482,23 +810,42 @@ export default function App() {
                   Same exposure — tap any chip below (or in the DoF visualizer) to lock that aperture across the table:
                 </Text>
                 <View style={styles.altRow}>
-                  {r.alternatives.map((a) => (
-                    <Pressable
-                      key={`${a.aperture}-${a.shutter}`}
-                      nativeID={`eq-chip-${a.aperture}`}
-                      onPress={() => setPreferredAperture(a.aperture)}
-                      style={[
-                        styles.altChip,
-                        a.aperture <= 2.8 && { borderColor: C.mustard, backgroundColor: '#2A231B' },
-                      ]}
-                    >
-                      <Text style={styles.altText}>{formatAperture(a.aperture)}</Text>
-                      <Text style={styles.altSub}>{formatShutter(a.shutter)}</Text>
-                      <Text style={[styles.altDof, a.aperture <= 2.8 && { color: C.mustard }]}>
-                        {dofLabel(a.aperture)}
-                      </Text>
-                    </Pressable>
-                  ))}
+                  {r.alternatives.map((a) => {
+                    const chipShake = evaluateHandheldSafety(a.shutter, camera!, lens!);
+                    return (
+                      <Pressable
+                        key={`${a.aperture}-${a.shutter}`}
+                        nativeID={`eq-chip-${a.aperture}`}
+                        onPress={() => setPreferredAperture(a.aperture)}
+                        style={[
+                          styles.altChip,
+                          a.aperture <= 2.8 && { borderColor: C.mustard, backgroundColor: '#2A231B' },
+                        ]}
+                      >
+                        <Text style={styles.altText}>{formatAperture(a.aperture)}</Text>
+                        <Text style={styles.altSub}>{formatShutter(a.shutter)}</Text>
+                        <Text style={[styles.altDof, a.aperture <= 2.8 && { color: C.mustard }]}>
+                          {dofLabel(a.aperture)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.altShakeText,
+                            chipShake.status === 'safe'
+                              ? { color: C.teal }
+                              : chipShake.status === 'borderline'
+                              ? { color: C.mustard }
+                              : { color: C.orange },
+                          ]}
+                        >
+                          {chipShake.status === 'safe'
+                            ? '✓ HANDHELD'
+                            : chipShake.status === 'borderline'
+                            ? '⚠ BRACE'
+                            : '▲ TRIPOD'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </>
             )}
@@ -555,7 +902,16 @@ export default function App() {
                 {lensFilters
                   .filter((f) => f.id !== 'none')
                   .map((f) => {
-                    const fr = recommend(iso, cond, camera!, lens!, f.stops, activeGritty.evShiftStops);
+                    const fr = recommend(
+                      iso,
+                      cond,
+                      camera!,
+                      lens!,
+                      f.stops + activeLightDir.stops,
+                      activeGritty.evShiftStops,
+                      undefined,
+                      prioritizeHandheld,
+                    );
                     const allPairs = fr.best ? [fr.best, ...fr.alternatives] : [];
                     const widest = [...allPairs].sort((a, b) => a.aperture - b.aperture)[0];
                     const isSelected = f.id === activeFilter.id;
@@ -668,7 +1024,7 @@ export default function App() {
                 {grittyStyles
                   .filter((g) => g.id !== 'off')
                   .map((g) => {
-                    const gr = recommendGritty(iso, cond, camera!, lens!, activeFilter.stops, g);
+                    const gr = recommendGritty(iso, cond, camera!, lens!, totalPositiveStops, g);
                     const isSelected = g.id === activeGritty.id;
                     return (
                       <Pressable
@@ -798,6 +1154,93 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: display, fontSize: 20, color: C.ink, letterSpacing: 1 },
   chipSub: { fontFamily: type, fontSize: 10, color: C.brown },
 
+  filmStockBox: {
+    marginTop: 10,
+    borderWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.paperDark,
+    padding: 10,
+  },
+  filmStockHeaderLabel: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.brown,
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  stockPill: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  stockPillActive: {
+    backgroundColor: C.ink,
+  },
+  stockPillTitle: {
+    fontFamily: display,
+    fontSize: 15,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+  stockPillSub: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.brown,
+  },
+  filmStockBanner: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: C.ink,
+    borderWidth: 1.5,
+    borderColor: C.mustard,
+  },
+  filmStockBannerHead: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  filmStockBannerTitle: {
+    fontFamily: display,
+    fontSize: 18,
+    color: C.mustard,
+    letterSpacing: 1.2,
+  },
+  filmStockBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  filmLatitudeBadge: {
+    backgroundColor: C.mustard,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: C.paper,
+  },
+  filmLatitudeBadgeText: {
+    fontFamily: display,
+    fontSize: 12,
+    color: C.ink,
+    letterSpacing: 0.8,
+  },
+  filmStockCharText: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.paper,
+    marginTop: 4,
+  },
+  filmStockTipText: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.paperDark,
+    marginTop: 3,
+  },
+
   controlBar: {
     marginTop: 24,
     borderWidth: 3,
@@ -840,13 +1283,116 @@ const styles = StyleSheet.create({
   isoBox: { borderWidth: 2, borderColor: C.ink, backgroundColor: C.paper, paddingHorizontal: 10, paddingVertical: 2 },
   isoBoxText: { fontFamily: display, fontSize: 22, color: C.ink },
   cameraLine: { fontFamily: type, fontSize: 13, color: C.ink, padding: 10, borderBottomWidth: 2, borderColor: C.ink },
+
+  fieldToolbar: {
+    padding: 10,
+    backgroundColor: C.paperDark,
+    borderBottomWidth: 2,
+    borderColor: C.ink,
+    gap: 10,
+  },
+  toolbarGroup: {},
+  toolbarLabel: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.brown,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  toolbarRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    alignItems: 'center',
+  },
+  dirPill: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  dirPillActive: {
+    backgroundColor: C.ink,
+  },
+  dirPillTitle: {
+    fontFamily: display,
+    fontSize: 15,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+  dirPillSub: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.brown,
+  },
+  sceneTabPill: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  sceneTabPillActive: {
+    backgroundColor: C.teal,
+  },
+  sceneTabText: {
+    fontFamily: display,
+    fontSize: 14,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+  handheldTogglePill: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  handheldTogglePillActive: {
+    backgroundColor: C.orange,
+  },
+  handheldToggleText: {
+    fontFamily: display,
+    fontSize: 14,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+
   grid: {},
   cell: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderRightWidth: 1, borderColor: C.ink, gap: 12 },
+  cellLowLight: { backgroundColor: '#EAE0C6' },
   cellActive: { backgroundColor: C.mustard },
   iconBox: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  condTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   condTitle: { fontFamily: display, fontSize: 22, color: C.ink, letterSpacing: 1 },
+  lowLightTag: {
+    backgroundColor: C.ink,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  lowLightTagText: {
+    fontFamily: display,
+    fontSize: 10,
+    color: C.mustard,
+    letterSpacing: 0.8,
+  },
   condHint: { fontFamily: type, fontSize: 11, color: C.brown },
-  condValue: { fontFamily: type, fontSize: 16, color: C.ink, marginTop: 2 },
+  condValueRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' },
+  condValue: { fontFamily: type, fontSize: 16, color: C.ink },
+  cellShakeBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: C.ink,
+  },
+  cellShakeText: {
+    fontFamily: display,
+    fontSize: 10,
+    color: C.paper,
+    letterSpacing: 0.6,
+  },
 
   result: { padding: 16, backgroundColor: C.ink },
   resultKicker: { fontFamily: type, fontSize: 12, color: C.mustard, letterSpacing: 1 },
@@ -854,6 +1400,49 @@ const styles = StyleSheet.create({
   bigBox: { flex: 1, backgroundColor: C.teal, borderWidth: 2, borderColor: C.paper, padding: 10, alignItems: 'center' },
   bigLabel: { fontFamily: type, fontSize: 12, color: C.ink },
   bigValue: { fontFamily: display, fontSize: 64, lineHeight: 68, color: C.paper },
+  handheldBanner: {
+    marginTop: 10,
+    padding: 8,
+    backgroundColor: '#262019',
+    borderWidth: 1.5,
+  },
+  handheldBannerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  handheldBadgeBox: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: C.ink,
+  },
+  handheldBadgeText: {
+    fontFamily: display,
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  handheldDetailText: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.paper,
+    flex: 1,
+    minWidth: 180,
+  },
+  handheldJumpBtn: {
+    backgroundColor: C.mustard,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: C.paper,
+  },
+  handheldJumpBtnText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.ink,
+    letterSpacing: 0.8,
+  },
   resultNote: { fontFamily: type, fontSize: 13, color: C.paper, marginTop: 10 },
   cumulativeBanner: { marginTop: 8, padding: 8, backgroundColor: '#2A231B', borderWidth: 1, borderColor: C.mustard },
   cumulativeText: { fontFamily: type, fontSize: 11, color: C.paper },
@@ -864,6 +1453,7 @@ const styles = StyleSheet.create({
   altText: { fontFamily: display, fontSize: 20, color: C.paper },
   altSub: { fontFamily: type, fontSize: 11, color: C.paperDark },
   altDof: { fontFamily: display, fontSize: 10, color: C.teal, letterSpacing: 0.8, marginTop: 2 },
+  altShakeText: { fontFamily: display, fontSize: 10, letterSpacing: 0.6, marginTop: 1 },
 
   filterSection: { marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderColor: '#4A4035' },
   filterPillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },

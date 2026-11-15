@@ -82,6 +82,79 @@ export default function WeatherIcon({ id, size = 48 }: { id: ConditionId; size?:
           <View style={[styles.line, { width: size * 0.5, marginTop: 3 }]} />
         </View>
       );
+    case 'golden':
+      return (
+        <View style={{ alignItems: 'center', width: size, height: size * 0.72, justifyContent: 'flex-end' }}>
+          <View style={{ marginBottom: -size * 0.2 }}>
+            <Sun size={size * 0.68} color="#D9622B" filled />
+          </View>
+          <View style={[styles.line, { width: size, height: 2.5 }]} />
+          <View style={[styles.line, { width: size * 0.65, marginTop: 3, backgroundColor: '#D9622B' }]} />
+        </View>
+      );
+    case 'dusk':
+      return (
+        <View style={{ width: size, height: size * 0.78, alignItems: 'center', justifyContent: 'center' }}>
+          {/* Crescent Moon */}
+          <View
+            style={{
+              width: size * 0.44,
+              height: size * 0.44,
+              borderRadius: size * 0.22,
+              backgroundColor: '#3E8E8B',
+              borderWidth: 2,
+              borderColor: INK,
+              marginBottom: 4,
+            }}
+          />
+          <View style={[styles.line, { width: size }]} />
+          <View style={[styles.line, { width: size * 0.6, marginTop: 3 }]} />
+        </View>
+      );
+    case 'indoor':
+      return (
+        <View
+          style={{
+            width: size * 0.68,
+            height: size * 0.76,
+            borderWidth: 2.5,
+            borderColor: INK,
+            backgroundColor: '#E3A82B',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* 4-pane vintage window frame */}
+          <View style={{ position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: INK }} />
+          <View style={{ position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: INK }} />
+        </View>
+      );
+    case 'night':
+      return (
+        <View
+          style={{
+            width: size * 0.78,
+            height: size * 0.78,
+            backgroundColor: INK,
+            borderRadius: 6,
+            borderWidth: 2,
+            borderColor: '#E3A82B',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Neon / Streetlamp glow + star */}
+          <View
+            style={{
+              width: size * 0.34,
+              height: size * 0.34,
+              borderRadius: size * 0.17,
+              backgroundColor: '#E3A82B',
+            }}
+          />
+          <View style={{ width: 2, height: size * 0.22, backgroundColor: '#F3EAD3', marginTop: 2 }} />
+        </View>
+      );
   }
 }
 

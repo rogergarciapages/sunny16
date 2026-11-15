@@ -1,6 +1,16 @@
 import { Camera, Lens } from '../data/types';
 
-export type ConditionId = 'snow' | 'sunny' | 'slight' | 'overcast' | 'heavy' | 'shade';
+export type ConditionId =
+  | 'snow'
+  | 'sunny'
+  | 'slight'
+  | 'overcast'
+  | 'heavy'
+  | 'shade'
+  | 'golden'
+  | 'dusk'
+  | 'indoor'
+  | 'night';
 
 export interface Condition {
   id: ConditionId;
@@ -8,15 +18,59 @@ export interface Condition {
   hint: string;
   /** Sunny 16 aperture at shutter = 1/ISO. */
   baseAperture: number;
+  category: 'daylight' | 'lowlight';
 }
 
 export const conditions: Condition[] = [
-  { id: 'snow', title: 'Snow / Sand', hint: 'Bright sun on light sand or snow', baseAperture: 22 },
-  { id: 'sunny', title: 'Sunny', hint: 'Distinct, hard-edged shadows', baseAperture: 16 },
-  { id: 'slight', title: 'Slight Overcast', hint: 'Soft shadow edges', baseAperture: 11 },
-  { id: 'overcast', title: 'Overcast', hint: 'Barely visible shadows', baseAperture: 8 },
-  { id: 'heavy', title: 'Heavy Overcast', hint: 'No shadows', baseAperture: 5.6 },
-  { id: 'shade', title: 'Open Shade / Sunset', hint: 'Subject in shade or sun on the horizon', baseAperture: 4 },
+  { id: 'snow', title: 'Snow / Sand', hint: 'Bright sun on light sand or snow', baseAperture: 22, category: 'daylight' },
+  { id: 'sunny', title: 'Sunny', hint: 'Distinct, hard-edged shadows', baseAperture: 16, category: 'daylight' },
+  { id: 'slight', title: 'Slight Overcast', hint: 'Soft shadow edges', baseAperture: 11, category: 'daylight' },
+  { id: 'overcast', title: 'Overcast', hint: 'Barely visible shadows', baseAperture: 8, category: 'daylight' },
+  { id: 'heavy', title: 'Heavy Overcast', hint: 'No shadows · Heavy cloud cover', baseAperture: 5.6, category: 'daylight' },
+  { id: 'shade', title: 'Open Shade / Sunset', hint: 'Subject in open shade or sunset sky', baseAperture: 4, category: 'daylight' },
+  { id: 'golden', title: 'Golden Hour', hint: 'Warm low sun · 30 min before sunset', baseAperture: 2.8, category: 'lowlight' },
+  { id: 'dusk', title: 'Blue Hour / Dusk', hint: 'Deep twilight sky · Just after sunset', baseAperture: 2, category: 'lowlight' },
+  { id: 'indoor', title: 'Bright Indoor / Window', hint: 'Daylight window portrait or bright cafe', baseAperture: 1.4, category: 'lowlight' },
+  { id: 'night', title: 'Night Street / Neon', hint: 'Lit shop windows, neon & streetlamps', baseAperture: 1, category: 'lowlight' },
+];
+
+export type LightDirectionId = 'front' | 'side' | 'back';
+
+export interface LightDirection {
+  id: LightDirectionId;
+  name: string;
+  shortName: string;
+  badge: string;
+  /** Additional stops of exposure required to keep subject shadows/skin tones properly exposed. */
+  stops: number;
+  hint: string;
+}
+
+export const lightDirections: LightDirection[] = [
+  {
+    id: 'front',
+    name: 'Frontlit (Sun Behind Photographer)',
+    shortName: '☀ FRONTLIT (0 EV)',
+    badge: 'STANDARD 0 EV',
+    stops: 0,
+    hint: 'Direct illumination on subject — baseline Sunny 16 exposure',
+  },
+  {
+    id: 'side',
+    name: 'Sidelit (90° Raking Light)',
+    shortName: '◐ SIDELIT (+1 EV)',
+    badge: '+1 EV SHADOWS',
+    stops: 1,
+    hint: 'Half of subject in shadow — opens +1 stop to preserve shadow detail',
+  },
+  {
+    id: 'back',
+    name: 'Backlit (Subject Against Sun / Sky)',
+    shortName: '◯ BACKLIT (+2 EV)',
+    badge: '+2 EV SKIN FILL',
+    stops: 2,
+    hint: 'Sun behind subject — opens +2 stops so face is not silhouetted',
+  },
 ];
 
 export interface Setting {
@@ -96,14 +150,86 @@ export const lensFilters: LensFilter[] = [
   },
 ];
 
+export interface HandheldSafety {
+  status: 'safe' | 'borderline' | 'tripod';
+  badge: string;
+  detail: string;
+  minSafeShutter: number;
+  eqFocalLengthMm: number;
+}
+
+export function get35mmEquivalentFocalLength(camera: Camera, lens: Lens): number {
+  if (camera.mount === 'olympus-pen-f' || camera.id.includes('demi') || camera.id.includes('pen-')) {
+    return Math.round(lens.focalLength * 1.44);
+  }
+  if (camera.mount === 'pentax-67') {
+    return Math.round(lens.focalLength * 0.5);
+  }
+  if (camera.format === '120') {
+    return Math.round(lens.focalLength * 0.55);
+  }
+  if (camera.format === 'Instant') {
+    return Math.round(lens.focalLength * 0.45);
+  }
+  return lens.focalLength;
+}
+
+/**
+ * Evaluates handheld camera-shake safety using the classic 1/FocalLength reciprocal rule
+ * (using the stricter of physical focal length and 35mm-equivalent focal length, minimum 1/30s).
+ */
+export function evaluateHandheldSafety(
+  shutter: number,
+  camera: Camera,
+  lens: Lens,
+): HandheldSafety {
+  const eqFocalLengthMm = get35mmEquivalentFocalLength(camera, lens);
+  const reciprocalDenom = Math.max(30, lens.focalLength, eqFocalLengthMm);
+  const rawThreshold = 1 / reciprocalDenom;
+  // Find the slowest camera shutter speed that is still <= rawThreshold * 1.15
+  const safeCameraShutters = camera.shutterSpeeds.filter((s) => s <= rawThreshold * 1.15);
+  const minSafeShutter =
+    safeCameraShutters.length > 0
+      ? Math.max(...safeCameraShutters)
+      : Math.min(...camera.shutterSpeeds);
+
+  if (shutter <= rawThreshold * 1.15) {
+    return {
+      status: 'safe',
+      badge: 'HANDHELD SAFE',
+      detail: `Meets 1/${reciprocalDenom}s rule for ${lens.focalLength}mm (${camera.format === '35mm' ? '35mm' : `≈${eqFocalLengthMm}mm eq.`})`,
+      minSafeShutter,
+      eqFocalLengthMm,
+    };
+  }
+  if (shutter <= rawThreshold * 2.3) {
+    return {
+      status: 'borderline',
+      badge: 'STEADY / BRACE HANDS',
+      detail: `~1 stop slower than 1/${reciprocalDenom}s rule (${lens.focalLength}mm) — tuck elbows or brace against a wall`,
+      minSafeShutter,
+      eqFocalLengthMm,
+    };
+  }
+  return {
+    status: 'tripod',
+    badge: 'SHAKE RISK · TRIPOD / OPEN UP',
+    detail: `Too slow for handheld ${lens.focalLength}mm (needs ≤ ${formatShutter(minSafeShutter)}) — open aperture or use tripod`,
+    minSafeShutter,
+    eqFocalLengthMm,
+  };
+}
+
 export interface Recommendation {
   ideal: { shutter: number; aperture: number };
   best: Setting | null;
   alternatives: Setting[];
-  /** Net exposure compensation in stops (filterStops + evShiftStops). */
+  /** Net exposure compensation in stops (filterStops + lightDirStops + evShiftStops). */
   netEvStops: number;
-  /** Effective ISO after combining box ISO, filter factor, and gritty EV shift. */
+  /** Effective ISO after combining box ISO, filter factor, light direction, and gritty EV shift. */
   effectiveIso: number;
+  /** Fastest handheld-safe setting in the valid exposure pool (if available). */
+  handheldSafeSetting: Setting | null;
 }
 
 export type GrittyStyleId = 'off' | 'push-1' | 'push-2' | 'crushed' | 'kinetic';
@@ -210,9 +336,10 @@ export function recommend(
   filterStops = 0,
   evShiftStops = 0,
   preferredAperture?: number,
+  prioritizeHandheld = false,
 ): Recommendation {
   // Net exposure compensation in stops:
-  // +filterStops (more light needed for filter) + evShiftStops (negative for push/underexposure)
+  // +filterStops (more light needed for filter/direction) + evShiftStops (negative for push/underexposure)
   const netEvStops = filterStops + evShiftStops;
   const effectiveIso = iso / 2 ** netEvStops;
   const target = condition.baseAperture ** 2 * effectiveIso; // N²/t
@@ -236,6 +363,20 @@ export function recommend(
   const shutterDist = (x: Setting) => Math.abs(log2(x.shutter * effectiveIso));
   const apertureDist = (x: Setting, targetAp: number) => Math.abs(log2(x.aperture / targetAp));
 
+  // Find a handheld-safe setting in the valid pool (closest to 1/f rule without going slower than safe)
+  const eqFocalMm = get35mmEquivalentFocalLength(camera, lens);
+  const minSafeShutterThreshold = (1 / Math.max(30, lens.focalLength, eqFocalMm)) * 1.15;
+  const handheldSafeCandidates = pool.filter((x) => x.shutter <= minSafeShutterThreshold);
+  const handheldSafeSetting =
+    handheldSafeCandidates.length > 0
+      ? [...handheldSafeCandidates].sort(
+          (a, b) =>
+            Math.abs(log2(a.shutter / minSafeShutterThreshold)) -
+              Math.abs(log2(b.shutter / minSafeShutterThreshold)) ||
+            Math.abs(a.errorStops) - Math.abs(b.errorStops),
+        )[0]
+      : [...pool].sort((a, b) => a.shutter - b.shutter)[0] ?? null;
+
   let best: Setting | null = null;
   if (preferredAperture !== undefined) {
     // Strictly select from valid exposures in this light condition (pool),
@@ -248,18 +389,23 @@ export function recommend(
           shutterDist(a) - shutterDist(b),
       )[0] ?? null;
   } else {
-    best =
+    const autoBest =
       (close.length
         ? [...close].sort((a, b) => shutterDist(a) - shutterDist(b) || Math.abs(a.errorStops) - Math.abs(b.errorStops))
         : [...pool].sort((a, b) => Math.abs(a.errorStops) - Math.abs(b.errorStops) || shutterDist(a) - shutterDist(b))
       )[0] ?? null;
+    if (prioritizeHandheld && autoBest && autoBest.shutter > minSafeShutterThreshold && handheldSafeSetting) {
+      best = handheldSafeSetting;
+    } else {
+      best = autoBest;
+    }
   }
 
   const alternatives = good
     .filter((x) => !(best && x.shutter === best.shutter && x.aperture === best.aperture))
     .sort((a, b) => a.aperture - b.aperture || a.shutter - b.shutter);
 
-  return { ideal, best, alternatives, netEvStops, effectiveIso };
+  return { ideal, best, alternatives, netEvStops, effectiveIso, handheldSafeSetting };
 }
 
 /**
