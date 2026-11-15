@@ -209,6 +209,7 @@ export function recommend(
   lens: Lens,
   filterStops = 0,
   evShiftStops = 0,
+  preferredAperture?: number,
 ): Recommendation {
   // Net exposure compensation in stops:
   // +filterStops (more light needed for filter) + evShiftStops (negative for push/underexposure)
@@ -233,14 +234,34 @@ export function recommend(
   // Prefer exact exposure, then the shutter closest to 1/effectiveIso.
   const close = pool.filter((x) => Math.abs(x.errorStops) <= 0.34);
   const shutterDist = (x: Setting) => Math.abs(log2(x.shutter * effectiveIso));
-  const best =
-    (close.length
-      ? [...close].sort((a, b) => shutterDist(a) - shutterDist(b) || Math.abs(a.errorStops) - Math.abs(b.errorStops))
-      : [...pool].sort((a, b) => Math.abs(a.errorStops) - Math.abs(b.errorStops) || shutterDist(a) - shutterDist(b))
-    )[0] ?? null;
+  const apertureDist = (x: Setting, targetAp: number) => Math.abs(log2(x.aperture / targetAp));
+
+  let best: Setting | null = null;
+  if (preferredAperture !== undefined) {
+    // If the lens has this exact aperture stop, find the best shutter speed for it
+    const exactForAperture = all
+      .filter((x) => x.aperture === preferredAperture)
+      .sort((a, b) => Math.abs(a.errorStops) - Math.abs(b.errorStops) || shutterDist(a) - shutterDist(b))[0];
+    // If within usable range (<= 0.6 EV) or no good pool exists, use exact aperture match; otherwise closest valid exposure to preferredAperture
+    const closestValid = [...pool].sort(
+      (a, b) =>
+        apertureDist(a, preferredAperture) - apertureDist(b, preferredAperture) ||
+        Math.abs(a.errorStops) - Math.abs(b.errorStops),
+    )[0];
+    best =
+      exactForAperture && Math.abs(exactForAperture.errorStops) <= 0.6
+        ? exactForAperture
+        : exactForAperture ?? closestValid ?? null;
+  } else {
+    best =
+      (close.length
+        ? [...close].sort((a, b) => shutterDist(a) - shutterDist(b) || Math.abs(a.errorStops) - Math.abs(b.errorStops))
+        : [...pool].sort((a, b) => Math.abs(a.errorStops) - Math.abs(b.errorStops) || shutterDist(a) - shutterDist(b))
+      )[0] ?? null;
+  }
 
   const alternatives = good
-    .filter((x) => x !== best)
+    .filter((x) => !(best && x.shutter === best.shutter && x.aperture === best.aperture))
     .sort((a, b) => a.aperture - b.aperture || a.shutter - b.shutter);
 
   return { ideal, best, alternatives, netEvStops, effectiveIso };
@@ -350,4 +371,109 @@ export function formatError(stops: number): string {
   const thirds = Math.round((abs - whole) * 3);
   const frac = thirds === 0 ? '' : thirds === 1 ? '⅓' : '⅔';
   return `${sign}${whole ? whole : ''}${frac} EV`;
+}
+
+export interface DofResult {
+  /** Circle of confusion in mm based on film format (e.g. 0.0290mm for 35mm). */
+  cocMm: number;
+  /** Subject focus distance in meters. */
+  subjectDistanceM: number;
+  /** Hyperfocal distance in meters. */
+  hyperfocalM: number;
+  /** Near limit of acceptable sharpness in meters. */
+  nearLimitM: number;
+  /** Far limit of acceptable sharpness in meters (Infinity if focused >= hyperfocal). */
+  farLimitM: number;
+  /** Sharp zone in front of the subject in meters. */
+  inFrontM: number;
+  /** Sharp zone behind the subject in meters (Infinity if farLimitM is Infinity). */
+  behindM: number;
+  /** Total depth of field in meters (Infinity if farLimitM is Infinity). */
+  totalDofM: number;
+  /** Percentage of total DOF in front of the subject (0–100). */
+  inFrontPct: number;
+  /** Percentage of total DOF behind the subject (0–100). */
+  behindPct: number;
+  /** Blur circle diameter (mm on film) for an infinity background point. */
+  infinityBlurMm: number;
+  /** Ratio of infinity blur disc to CoC (1x = sharp at infinity, 10x+ = creamy bokeh). */
+  bokehRatio: number;
+  bokehLabel: string;
+}
+
+/**
+ * Computes optical Depth of Field metrics for the given camera format, lens
+ * focal length, aperture stop, and subject focus distance.
+ */
+export function calculateDof(
+  camera: Camera,
+  lens: Lens,
+  aperture: number,
+  subjectDistanceM: number,
+): DofResult {
+  const cocMm =
+    camera.id === 'olympus-pen-f'
+      ? 0.021
+      : camera.format === '120'
+      ? camera.mount === 'pentax-67'
+        ? 0.055
+        : 0.045
+      : 0.029;
+
+  const f = lens.focalLength; // mm
+  const N = aperture;
+  const sMm = Math.max(subjectDistanceM * 1000, f * 3);
+
+  // Hyperfocal distance in mm: H = f^2 / (N * c) + f
+  const hMm = (f * f) / (N * cocMm) + f;
+  const hyperfocalM = hMm / 1000;
+
+  // Near limit in mm: Dn = s * (H - f) / (H + s - 2f)
+  const nearMm = (sMm * (hMm - f)) / (hMm + sMm - 2 * f);
+  const nearLimitM = Math.max(0.1, nearMm / 1000);
+
+  // Far limit in mm: Df = s * (H - f) / (H - s) for s < H, else Infinity
+  const isInfinite = sMm >= hMm - 1;
+  const farLimitM = isInfinite ? Infinity : (sMm * (hMm - f)) / (hMm - sMm) / 1000;
+
+  const inFrontM = Math.max(0, subjectDistanceM - nearLimitM);
+  const behindM = isInfinite ? Infinity : Math.max(0, farLimitM - subjectDistanceM);
+  const totalDofM = isInfinite ? Infinity : farLimitM - nearLimitM;
+
+  const inFrontPct = isInfinite
+    ? 0
+    : totalDofM > 0
+    ? (inFrontM / totalDofM) * 100
+    : 50;
+  const behindPct = isInfinite ? 100 : Math.max(0, 100 - inFrontPct);
+
+  // Background blur disc at infinity on the film plane: d = f^2 / (N * (s - f))
+  const infinityBlurMm = (f * f) / (N * Math.max(1, sMm - f));
+  const bokehRatio = infinityBlurMm / cocMm;
+
+  const bokehLabel = isInfinite
+    ? 'PAN-FOCUS TO ∞'
+    : bokehRatio >= 12
+    ? 'ULTRA-CREAMY BOKEH'
+    : bokehRatio >= 6
+    ? 'CREAMY BOKEH'
+    : bokehRatio >= 2.5
+    ? 'SOFT SEPARATION'
+    : 'GENTLE FALLOFF';
+
+  return {
+    cocMm,
+    subjectDistanceM,
+    hyperfocalM,
+    nearLimitM,
+    farLimitM,
+    inFrontM,
+    behindM,
+    totalDofM,
+    inFrontPct,
+    behindPct,
+    infinityBlurMm,
+    bokehRatio,
+    bokehLabel,
+  };
 }

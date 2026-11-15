@@ -22,6 +22,7 @@ import {
   GrittyStyleId,
 } from './lib/exposure';
 import WeatherIcon from './components/WeatherIcon';
+import DepthOfFieldIndicator from './components/DepthOfFieldIndicator';
 
 const C = {
   paper: '#F3EAD3',
@@ -95,6 +96,14 @@ export default function App() {
   const activeFilter = lensFilters.find((f) => f.id === filterId) ?? lensFilters[0];
   const [grittyId, setGrittyId] = useState<GrittyStyleId>('off');
   const activeGritty = grittyStyles.find((g) => g.id === grittyId) ?? grittyStyles[0];
+  const [preferredAperture, setPreferredAperture] = useState<number | undefined>();
+  const [focusDistanceM, setFocusDistanceM] = useState<number>(3.0);
+  const [isHyperfocalMode, setIsHyperfocalMode] = useState<boolean>(false);
+
+  const validPreferredAperture =
+    preferredAperture !== undefined && lens?.apertures.includes(preferredAperture)
+      ? preferredAperture
+      : undefined;
 
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: C.paper }} />;
 
@@ -102,6 +111,7 @@ export default function App() {
     setBrandId(id);
     setCameraId(cameras.find((c) => c.brandId === id)?.id);
     setLensId(undefined);
+    setPreferredAperture(undefined);
   };
 
   return (
@@ -133,7 +143,7 @@ export default function App() {
 
           <Section step="3" title="Camera Model">
             {brandCameras.map((c) => (
-              <Chip key={c.id} id={`camera-${c.id}`} label={c.name} sub={`${c.year} · ${c.format}`} active={camera?.id === c.id} onPress={() => { setCameraId(c.id); setLensId(undefined); }} />
+              <Chip key={c.id} id={`camera-${c.id}`} label={c.name} sub={`${c.year} · ${c.format}`} active={camera?.id === c.id} onPress={() => { setCameraId(c.id); setLensId(undefined); setPreferredAperture(undefined); }} />
             ))}
           </Section>
 
@@ -142,7 +152,7 @@ export default function App() {
               <Text style={styles.body}>No lenses listed for this mount yet — add one in data/lenses.ts</Text>
             ) : (
               cameraLenses.map((l) => (
-                <Chip key={l.id} id={`lens-${l.id}`} label={l.name} sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}`} active={lens?.id === l.id} onPress={() => setLensId(l.id)} />
+                <Chip key={l.id} id={`lens-${l.id}`} label={l.name} sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}`} active={lens?.id === l.id} onPress={() => { setLensId(l.id); setPreferredAperture(undefined); }} />
               ))
             )}
           </Section>
@@ -153,6 +163,17 @@ export default function App() {
               <View style={styles.tableHeader}>
                 <Text style={styles.tableHeaderText}>EXPOSURE TABLE</Text>
                 <View style={styles.headerBadges}>
+                  {validPreferredAperture !== undefined && (
+                    <Pressable
+                      nativeID="reset-aperture-lock"
+                      onPress={() => setPreferredAperture(undefined)}
+                      style={[styles.isoBox, { backgroundColor: C.mustard }]}
+                    >
+                      <Text style={styles.isoBoxText}>
+                        DOF LOCK {formatAperture(validPreferredAperture)} ✕
+                      </Text>
+                    </Pressable>
+                  )}
                   {activeGritty.id !== 'off' && (
                     <View style={[styles.isoBox, { backgroundColor: C.orange }]}>
                       <Text style={[styles.isoBoxText, { color: C.paper }]}>
@@ -174,13 +195,22 @@ export default function App() {
                 {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
                 {activeFilter.id !== 'none' ? ` · ${activeFilter.name}` : ''}
                 {activeGritty.id !== 'off' ? ` · ${activeGritty.name}` : ''}
+                {validPreferredAperture !== undefined ? ` · Priority: ${formatAperture(validPreferredAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})` : ''}
               </Text>
 
               <View style={[styles.grid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
                 {conditions.map((cond) => {
-                  const r = recommend(iso, cond, camera, lens, activeFilter.stops, activeGritty.evShiftStops);
+                  const r = recommend(
+                    iso,
+                    cond,
+                    camera,
+                    lens,
+                    activeFilter.stops,
+                    activeGritty.evShiftStops,
+                    validPreferredAperture,
+                  );
                   const gr =
-                    activeGritty.id === 'kinetic'
+                    activeGritty.id === 'kinetic' && validPreferredAperture === undefined
                       ? recommendGritty(iso, cond, camera, lens, activeFilter.stops, activeGritty)
                       : null;
                   const cellBest = gr?.dragSetting ?? r.best;
@@ -221,7 +251,16 @@ export default function App() {
 
   function Result({ iso, conditionId }: { iso: number; conditionId: Condition['id'] }) {
     const cond = conditions.find((c) => c.id === conditionId)!;
-    const r = recommend(iso, cond, camera!, lens!, activeFilter.stops, activeGritty.evShiftStops);
+    const r = recommend(
+      iso,
+      cond,
+      camera!,
+      lens!,
+      activeFilter.stops,
+      activeGritty.evShiftStops,
+      validPreferredAperture,
+    );
+    const rAuto = recommend(iso, cond, camera!, lens!, activeFilter.stops, activeGritty.evShiftStops);
     const activeGrittyRec = recommendGritty(
       iso,
       cond,
@@ -231,11 +270,33 @@ export default function App() {
       activeGritty.id === 'off' ? grittyStyles[1] : activeGritty,
     );
     const bestDisplay =
-      activeGritty.id === 'kinetic' && activeGrittyRec.dragSetting
+      activeGritty.id === 'kinetic' && validPreferredAperture === undefined && activeGrittyRec.dragSetting
         ? activeGrittyRec.dragSetting
         : r.best;
     const dofLabel = (aperture: number) =>
       aperture <= 2.8 ? 'SHALLOW / BOKEH' : aperture <= 8 ? 'BALANCED DOF' : 'DEEP FOCUS';
+
+    const pickClosestValidAperture = (targetAp: number): number => {
+      const validPool = [
+        ...(rAuto.best ? [rAuto.best.aperture] : []),
+        ...rAuto.alternatives.map((a) => a.aperture),
+      ];
+      const candidates = validPool.length > 0 ? validPool : lens!.apertures;
+      return candidates.reduce((prev, curr) =>
+        Math.abs(Math.log2(curr / targetAp)) < Math.abs(Math.log2(prev / targetAp)) ? curr : prev,
+      );
+    };
+
+    const handleSelectDistance = (distM: number, targetAp: number) => {
+      setIsHyperfocalMode(false);
+      setFocusDistanceM(distM);
+      setPreferredAperture(pickClosestValidAperture(targetAp));
+    };
+
+    const handleSelectHyperfocal = (targetAp: number) => {
+      setIsHyperfocalMode(true);
+      setPreferredAperture(pickClosestValidAperture(targetAp));
+    };
 
     return (
       <View style={styles.result} nativeID="result-panel">
@@ -243,6 +304,9 @@ export default function App() {
           RECOMMENDED SETTING · {cond.title.toUpperCase()}
           {activeFilter.id !== 'none' ? ` · ${activeFilter.shortName} (${activeFilter.factor})` : ''}
           {activeGritty.id !== 'off' ? ` · ${activeGritty.shortName}` : ''}
+          {validPreferredAperture !== undefined
+            ? ` · DOF PRIORITY (${isHyperfocalMode ? 'HYPERFOCAL' : `${focusDistanceM}M`} · ${formatAperture(validPreferredAperture)})`
+            : ''}
         </Text>
         {bestDisplay ? (
           <>
@@ -285,12 +349,14 @@ export default function App() {
                   EQUIVALENT EXPOSURES {activeFilter.id !== 'none' ? `· WITH ${activeFilter.shortName}` : ''}
                 </Text>
                 <Text style={styles.altHint}>
-                  Same exposure — pick wider apertures (left) for creamy bokeh or smaller apertures (right) for deep focus:
+                  Same exposure — tap any chip below (or in the DoF visualizer) to lock that aperture across the table:
                 </Text>
                 <View style={styles.altRow}>
                   {r.alternatives.map((a) => (
-                    <View
-                      key={a.shutter}
+                    <Pressable
+                      key={`${a.aperture}-${a.shutter}`}
+                      nativeID={`eq-chip-${a.aperture}`}
+                      onPress={() => setPreferredAperture(a.aperture)}
                       style={[
                         styles.altChip,
                         a.aperture <= 2.8 && { borderColor: C.mustard, backgroundColor: '#2A231B' },
@@ -301,11 +367,28 @@ export default function App() {
                       <Text style={[styles.altDof, a.aperture <= 2.8 && { color: C.mustard }]}>
                         {dofLabel(a.aperture)}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
               </>
             )}
+
+            {/* Depth of Field & Bokeh Visualizer */}
+            <DepthOfFieldIndicator
+              camera={camera!}
+              lens={lens!}
+              selectedAperture={bestDisplay.aperture}
+              hasApertureLock={validPreferredAperture !== undefined}
+              distanceM={focusDistanceM}
+              isHyperfocalMode={isHyperfocalMode}
+              allExposurePairs={[bestDisplay, ...r.alternatives]}
+              onSelectAperture={(ap) => {
+                setPreferredAperture(ap);
+                if (ap === undefined) setIsHyperfocalMode(false);
+              }}
+              onSelectDistance={handleSelectDistance}
+              onSelectHyperfocal={handleSelectHyperfocal}
+            />
 
             {/* Filter Compensation & Equivalent Exposures Comparison */}
             <View style={styles.filterSection}>
