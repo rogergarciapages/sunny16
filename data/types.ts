@@ -6,7 +6,7 @@ export interface Brand {
   country: string;
 }
 
-export type FilmFormat = '35mm' | '120' | 'Instant';
+export type FilmFormat = '35mm';
 
 export interface Lens {
   id: string;

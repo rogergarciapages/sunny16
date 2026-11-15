@@ -8,6 +8,6 @@ export const brands: Brand[] = [
   { id: 'minolta', name: 'Minolta', country: 'Japan' },
   { id: 'leica', name: 'Leica', country: 'Germany' },
   { id: 'zenit', name: 'Zenit', country: 'USSR' },
-  { id: 'hasselblad', name: 'Hasselblad', country: 'Sweden' },
+  { id: 'contax', name: 'Contax', country: 'Germany / Japan' },
   { id: 'yashica', name: 'Yashica', country: 'Japan' },
 ];

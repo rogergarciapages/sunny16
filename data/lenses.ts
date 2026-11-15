@@ -123,19 +123,13 @@ export const lenses: Lens[] = [
   { id: 'smc-85-2', name: 'SMC Pentax-M 85mm f/2', mount: 'pentax-k', brandId: 'pentax', focalLength: 85, apertures: range(2, 22) },
   { id: 'smc-135-3.5', name: 'SMC Pentax-M 135mm f/3.5', mount: 'pentax-k', brandId: 'pentax', focalLength: 135, apertures: range(3.5, 32) },
   { id: 'smc-a-50-1.7', name: 'SMC Pentax-A 50mm f/1.7', mount: 'pentax-k', brandId: 'pentax', focalLength: 50, apertures: range(1.7, 22) },
-  { id: 'smc-fa-50-1.4', name: 'SMC Pentax-FA 50mm f/1.4', mount: 'pentax-k', brandId: 'pentax', focalLength: 50, apertures: range(1.4, 22), compatibleCameraIds: ['pentax-sf1', 'pentax-z1', 'pentax-mz5', 'pentax-mzm'] },
-  { id: 'smc-fa-28-70-4', name: 'SMC Pentax-FA 28-70mm f/4 AL', mount: 'pentax-k', brandId: 'pentax', focalLength: 50, apertures: range(4, 22), compatibleCameraIds: ['pentax-sf1', 'pentax-z1', 'pentax-mz5', 'pentax-mzm'] },
+  { id: 'smc-fa-50-1.4', name: 'SMC Pentax-FA 50mm f/1.4', mount: 'pentax-k', brandId: 'pentax', focalLength: 50, apertures: range(1.4, 22), compatibleCameraIds: ['pentax-sf1', 'pentax-z1', 'pentax-mz5', 'pentax-mzm', 'pentax-mzs'] },
+  { id: 'smc-fa-28-70-4', name: 'SMC Pentax-FA 28-70mm f/4 AL', mount: 'pentax-k', brandId: 'pentax', focalLength: 50, apertures: range(4, 22), compatibleCameraIds: ['pentax-sf1', 'pentax-z1', 'pentax-mz5', 'pentax-mzm', 'pentax-mzs'] },
+  { id: 'smc-fa-43-1.9', name: 'SMC Pentax-FA 43mm f/1.9 Limited', mount: 'pentax-k', brandId: 'pentax', focalLength: 43, apertures: range(1.9, 22) },
   // Zenit K-mount lenses
   { id: 'helios-44k-4', name: 'MC Helios-44K-4 58mm f/2', mount: 'pentax-k', brandId: 'zenit', focalLength: 58, apertures: range(2, 16) },
   { id: 'zenitar-k2-50-2', name: 'MC Zenitar-K2 50mm f/2', mount: 'pentax-k', brandId: 'zenit', focalLength: 50, apertures: range(2, 16) },
   { id: 'mir-47k-20-2.5', name: 'MC Mir-47K 20mm f/2.5', mount: 'pentax-k', brandId: 'zenit', focalLength: 20, apertures: range(2.5, 22) },
-
-  // Pentax 67 (Pentax 6x7, Pentax 67 II)
-  { id: 'smc-67-55-4', name: 'SMC Pentax 67 55mm f/4', mount: 'pentax-67', brandId: 'pentax', focalLength: 55, apertures: range(4, 22) },
-  { id: 'smc-67-75-4.5', name: 'SMC Pentax 67 75mm f/4.5', mount: 'pentax-67', brandId: 'pentax', focalLength: 75, apertures: range(4.5, 22) },
-  { id: 'smc-67-90-2.8', name: 'SMC Pentax 67 90mm f/2.8', mount: 'pentax-67', brandId: 'pentax', focalLength: 90, apertures: range(2.8, 22) },
-  { id: 'smc-67-105-2.4', name: 'SMC Pentax 67 105mm f/2.4', mount: 'pentax-67', brandId: 'pentax', focalLength: 105, apertures: range(2.4, 22) },
-  { id: 'smc-67-165-2.8', name: 'SMC Pentax 67 165mm f/2.8', mount: 'pentax-67', brandId: 'pentax', focalLength: 165, apertures: range(2.8, 22) },
 
   // M42 Screw Mount (Pentax SV/Spotmatic/Spotmatic F, Zenit 3M/E/B/EM/TTL/19/11/12XP/122, Yashica TL Electro-X)
   { id: 'takumar-55-1.8', name: 'Super-Takumar 55mm f/1.8', mount: 'm42', brandId: 'pentax', focalLength: 55, apertures: range(1.8, 16) },
@@ -245,35 +239,46 @@ export const lenses: Lens[] = [
   { id: 'elmarit-r-90-2.8', name: 'Elmarit-R 90mm f/2.8', mount: 'leica-r', brandId: 'leica', focalLength: 90, apertures: range(2.8, 22) },
   { id: 'elmarit-r-135-2.8', name: 'Elmarit-R 135mm f/2.8', mount: 'leica-r', brandId: 'leica', focalLength: 135, apertures: range(2.8, 22) },
 
-  // Hasselblad V (500C, 500EL, 500 C/M, 500EL/M, 2000FC, 500ELX, 503CX, 205TCC, 501C, 503CW, 501CM)
-  { id: 'planar-80-2.8', name: 'Zeiss Planar 80mm f/2.8 C/CF', mount: 'hasselblad-v', brandId: 'hasselblad', focalLength: 80, apertures: range(2.8, 22) },
-  { id: 'distagon-50-4', name: 'Zeiss Distagon 50mm f/4 C/CF', mount: 'hasselblad-v', brandId: 'hasselblad', focalLength: 50, apertures: range(4, 22) },
-  { id: 'distagon-60-3.5', name: 'Zeiss Distagon 60mm f/3.5 C/CF', mount: 'hasselblad-v', brandId: 'hasselblad', focalLength: 60, apertures: range(3.5, 22) },
-  { id: 'planar-100-3.5', name: 'Zeiss Planar 100mm f/3.5 C/CF', mount: 'hasselblad-v', brandId: 'hasselblad', focalLength: 100, apertures: range(3.5, 22) },
-  { id: 'sonnar-150-4', name: 'Zeiss Sonnar 150mm f/4 C/CF', mount: 'hasselblad-v', brandId: 'hasselblad', focalLength: 150, apertures: range(4, 32) },
-  { id: 'sonnar-250-5.6', name: 'Zeiss Sonnar 250mm f/5.6 C/CF', mount: 'hasselblad-v', brandId: 'hasselblad', focalLength: 250, apertures: range(5.6, 32) },
-  // Shutterless F/FE lens — only compatible with focal-plane shutter Hasselblad bodies (2000FC, 205TCC)
-  { id: 'planar-110-2-fe', name: 'Zeiss Planar 110mm f/2 F/FE', mount: 'hasselblad-v', brandId: 'hasselblad', focalLength: 110, apertures: range(2, 16), compatibleCameraIds: ['hasselblad-2000fc', 'hasselblad-205tcc'] },
+  // Contax Rangefinder (Contax IIa)
+  { id: 'zeiss-sonnar-50-1.5-rf', name: 'Zeiss Opton Sonnar 50mm f/1.5 T', mount: 'contax-rf', brandId: 'contax', focalLength: 50, apertures: range(1.5, 22) },
+  { id: 'zeiss-sonnar-50-2-rf', name: 'Zeiss Opton Sonnar 50mm f/2 T', mount: 'contax-rf', brandId: 'contax', focalLength: 50, apertures: range(2, 22) },
+  { id: 'zeiss-biogon-35-2.8-rf', name: 'Zeiss Opton Biogon 35mm f/2.8', mount: 'contax-rf', brandId: 'contax', focalLength: 35, apertures: range(2.8, 22) },
+  { id: 'zeiss-sonnar-85-2-rf', name: 'Zeiss Opton Sonnar 85mm f/2', mount: 'contax-rf', brandId: 'contax', focalLength: 85, apertures: range(2, 22) },
 
-  // Contax / Yashica C/Y (Yashica FX-1, FX-2, FR, FX-3, FX-D Quartz, FX-3 Super 2000, 108 Multi Program)
+  // Contax G Rangefinder (Contax G1, G2)
+  { id: 'zeiss-planar-45-2-g', name: 'Carl Zeiss Planar 45mm f/2 T* (G)', mount: 'contax-g', brandId: 'contax', focalLength: 45, apertures: range(2, 16) },
+  { id: 'zeiss-planar-35-2-g', name: 'Carl Zeiss Planar 35mm f/2 T* (G)', mount: 'contax-g', brandId: 'contax', focalLength: 35, apertures: range(2, 16) },
+  { id: 'zeiss-biogon-28-2.8-g', name: 'Carl Zeiss Biogon 28mm f/2.8 T* (G)', mount: 'contax-g', brandId: 'contax', focalLength: 28, apertures: range(2.8, 22) },
+  { id: 'zeiss-biogon-21-2.8-g', name: 'Carl Zeiss Biogon 21mm f/2.8 T* (G)', mount: 'contax-g', brandId: 'contax', focalLength: 21, apertures: range(2.8, 22) },
+  { id: 'zeiss-sonnar-90-2.8-g', name: 'Carl Zeiss Sonnar 90mm f/2.8 T* (G)', mount: 'contax-g', brandId: 'contax', focalLength: 90, apertures: range(2.8, 22) },
+
+  // Contax / Yashica C/Y (Contax RTS, 139Q, 137MA, RTS II, 159MM, 167MT, RTS III, S2, Aria & Yashica FX/FR series)
+  { id: 'zeiss-planar-50-1.4-cy', name: 'Carl Zeiss Planar 50mm f/1.4 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 50, apertures: range(1.4, 16) },
+  { id: 'zeiss-planar-50-1.7-cy', name: 'Carl Zeiss Planar 50mm f/1.7 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 50, apertures: range(1.7, 16) },
+  { id: 'zeiss-tessar-45-2.8-cy', name: 'Carl Zeiss Tessar 45mm f/2.8 T* (Pancake)', mount: 'contax-yashica', brandId: 'contax', focalLength: 45, apertures: range(2.8, 22) },
+  { id: 'zeiss-distagon-28-2.8-cy', name: 'Carl Zeiss Distagon 28mm f/2.8 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 28, apertures: range(2.8, 22) },
+  { id: 'zeiss-distagon-35-1.4-cy', name: 'Carl Zeiss Distagon 35mm f/1.4 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 35, apertures: range(1.4, 16) },
+  { id: 'zeiss-distagon-35-2.8-cy', name: 'Carl Zeiss Distagon 35mm f/2.8 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 35, apertures: range(2.8, 22) },
+  { id: 'zeiss-planar-85-1.4-cy', name: 'Carl Zeiss Planar 85mm f/1.4 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 85, apertures: range(1.4, 16) },
+  { id: 'zeiss-sonnar-85-2.8-cy', name: 'Carl Zeiss Sonnar 85mm f/2.8 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 85, apertures: range(2.8, 22) },
+  { id: 'zeiss-sonnar-135-2.8-cy', name: 'Carl Zeiss Sonnar 135mm f/2.8 T*', mount: 'contax-yashica', brandId: 'contax', focalLength: 135, apertures: range(2.8, 22) },
   { id: 'yashica-ml-50-1.7', name: 'Yashica ML 50mm f/1.7', mount: 'contax-yashica', brandId: 'yashica', focalLength: 50, apertures: range(1.7, 16) },
   { id: 'yashica-ml-50-1.4', name: 'Yashica ML 50mm f/1.4', mount: 'contax-yashica', brandId: 'yashica', focalLength: 50, apertures: range(1.4, 16) },
   { id: 'yashica-dsb-50-1.9', name: 'Yashica DSB 50mm f/1.9', mount: 'contax-yashica', brandId: 'yashica', focalLength: 50, apertures: range(1.9, 16) },
   { id: 'yashica-ml-28-2.8', name: 'Yashica ML 28mm f/2.8', mount: 'contax-yashica', brandId: 'yashica', focalLength: 28, apertures: range(2.8, 22) },
   { id: 'yashica-ml-35-2.8', name: 'Yashica ML 35mm f/2.8', mount: 'contax-yashica', brandId: 'yashica', focalLength: 35, apertures: range(2.8, 22) },
   { id: 'yashica-ml-135-2.8', name: 'Yashica ML 135mm f/2.8', mount: 'contax-yashica', brandId: 'yashica', focalLength: 135, apertures: range(2.8, 22) },
-  { id: 'zeiss-planar-50-1.7-cy', name: 'Carl Zeiss Planar 50mm f/1.7 T*', mount: 'contax-yashica', brandId: 'yashica', focalLength: 50, apertures: range(1.7, 16) },
-  { id: 'zeiss-distagon-28-2.8-cy', name: 'Carl Zeiss Distagon 28mm f/2.8 T*', mount: 'contax-yashica', brandId: 'yashica', focalLength: 28, apertures: range(2.8, 22) },
 
-  // Fixed lenses (matched 1-to-1 via camera.fixedLensIds)
+  // Fixed lenses (matched 1-to-1 via camera.fixedLensIds · All 35mm)
   { id: 'canonet-40-1.7', name: 'Canon 40mm f/1.7 (fixed)', mount: 'fixed', brandId: 'canon', focalLength: 40, apertures: range(1.7, 16) },
   { id: 'canonet-40-2.8', name: 'Canon 40mm f/2.8 (fixed)', mount: 'fixed', brandId: 'canon', focalLength: 40, apertures: range(2.8, 16) },
   { id: 'olympus-trip35-lens', name: 'D.Zuiko 40mm f/2.8 (fixed)', mount: 'fixed', brandId: 'olympus', focalLength: 40, apertures: range(2.8, 22) },
   { id: 'olympus-35sp-lens', name: 'G.Zuiko 42mm f/1.7 (fixed)', mount: 'fixed', brandId: 'olympus', focalLength: 42, apertures: range(1.7, 16) },
   { id: 'olympus-35rc-lens', name: 'E.Zuiko 42mm f/2.8 (fixed)', mount: 'fixed', brandId: 'olympus', focalLength: 42, apertures: range(2.8, 22) },
   { id: 'olympus-xa-lens', name: 'F.Zuiko 35mm f/2.8 (fixed)', mount: 'fixed', brandId: 'olympus', focalLength: 35, apertures: range(2.8, 22) },
-  { id: 'yashinon-80-3.5-mat', name: 'Yashinon 80mm f/3.5 (fixed)', mount: 'fixed', brandId: 'yashica', focalLength: 80, apertures: range(3.5, 22) },
-  { id: 'yashinon-80-3.5', name: 'Yashinon 80mm f/3.5 (fixed)', mount: 'fixed', brandId: 'yashica', focalLength: 80, apertures: range(3.5, 32) },
+  { id: 'zeiss-sonnar-38-2.8-t2', name: 'Carl Zeiss Sonnar 38mm f/2.8 T* (fixed)', mount: 'fixed', brandId: 'contax', focalLength: 38, apertures: range(2.8, 16) },
+  { id: 'yashinon-dx-45-1.4-lynx', name: 'Yashinon-DX 45mm f/1.4 (fixed)', mount: 'fixed', brandId: 'yashica', focalLength: 45, apertures: range(1.4, 16) },
   { id: 'yashinon-dx-45-1.7', name: 'Color-Yashinon DX 45mm f/1.7 (fixed)', mount: 'fixed', brandId: 'yashica', focalLength: 45, apertures: range(1.7, 16) },
+  { id: 'color-yashinon-dx-35-1.8', name: 'Color-Yashinon DX 35mm f/1.8 (fixed)', mount: 'fixed', brandId: 'yashica', focalLength: 35, apertures: range(1.8, 16) },
   { id: 'yashica-t4-tessar-35-3.5', name: 'Carl Zeiss Tessar 35mm f/3.5 T* (fixed)', mount: 'fixed', brandId: 'yashica', focalLength: 35, apertures: range(3.5, 16) },
 ];

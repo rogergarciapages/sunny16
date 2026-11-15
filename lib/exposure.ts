@@ -80,7 +80,17 @@ export interface Setting {
   errorStops: number;
 }
 
-export type FilterId = 'none' | 'uv' | 'yellow' | 'red' | 'uv-yellow' | 'uv-red';
+export type FilterId =
+  | 'none'
+  | 'uv'
+  | 'yellow'
+  | '85b'
+  | 'cpl'
+  | 'orange'
+  | 'green'
+  | 'nd4'
+  | 'red'
+  | 'nd8';
 
 export interface LensFilter {
   id: FilterId;
@@ -101,16 +111,16 @@ export const lensFilters: LensFilter[] = [
     factor: '1× (0 EV)',
     stops: 0,
     color: '#F3EAD3',
-    effect: 'Unfiltered baseline exposure',
+    effect: 'Unfiltered baseline 35mm exposure',
   },
   {
     id: 'uv',
-    name: 'UV / Skylight Filter',
-    shortName: 'UV',
+    name: 'UV / Skylight 1A Filter',
+    shortName: 'UV / 1A',
     factor: '1× (+0 EV)',
     stops: 0,
     color: '#D8E8E6',
-    effect: 'Cuts atmospheric UV haze · No exposure compensation needed',
+    effect: 'Protects front element & cuts atmospheric UV haze · No exposure compensation needed',
   },
   {
     id: 'yellow',
@@ -119,7 +129,52 @@ export const lensFilters: LensFilter[] = [
     factor: '2× (+1 EV)',
     stops: 1,
     color: '#E3A82B',
-    effect: '+1 stop compensation · Natural B&W sky/cloud separation & 1 stop wider aperture for bokeh',
+    effect: '+1 stop compensation · Natural B&W sky/cloud separation & opens 1 stop wider for bokeh',
+  },
+  {
+    id: '85b',
+    name: '85B Daylight Warming Filter',
+    shortName: '85B WARM',
+    factor: '1.6× (+1 EV)',
+    stops: 1,
+    color: '#E09543',
+    effect: '+1 stop compensation · Converts tungsten 35mm film (CineStill 800T) to 5500K daylight',
+  },
+  {
+    id: 'cpl',
+    name: 'Circular / Linear Polarizer (CPL / PL)',
+    shortName: 'POLARIZER (CPL)',
+    factor: '4× (+2 EV)',
+    stops: 2,
+    color: '#4F9E9B',
+    effect: '+2 stops compensation · Cuts glare on water/glass, deepens blue skies (90° to sun) & unlocks wider daylight apertures on Color & B&W',
+  },
+  {
+    id: 'orange',
+    name: 'Orange Filter (#16 / YA2)',
+    shortName: 'ORANGE #16',
+    factor: '4× (+2 EV)',
+    stops: 2,
+    color: '#E07A2B',
+    effect: '+2 stops compensation · Classic 35mm B&W street/landscape filter — dramatic skies & smooth skin tones',
+  },
+  {
+    id: 'green',
+    name: 'Green Filter (#11 / X1)',
+    shortName: 'GREEN #11',
+    factor: '4× (+2 EV)',
+    stops: 2,
+    color: '#6C9E5E',
+    effect: '+2 stops compensation · Lightens B&W woodland foliage & renders natural outdoor portrait skin tones',
+  },
+  {
+    id: 'nd4',
+    name: 'Neutral Density ND4 (0.6 · 2-Stop)',
+    shortName: 'ND4 (2-STOP)',
+    factor: '4× (+2 EV)',
+    stops: 2,
+    color: '#A69D8A',
+    effect: '+2 stops compensation · Darkens bright sun with zero color shift so 1/1000s 35mm bodies can shoot f/2–f/2.8',
   },
   {
     id: 'red',
@@ -128,25 +183,16 @@ export const lensFilters: LensFilter[] = [
     factor: '8× (+3 EV)',
     stops: 3,
     color: '#D9622B',
-    effect: '+3 stops compensation · Dramatic B&W contrast & opens 3 stops wider for shallow DOF / bokeh',
+    effect: '+3 stops compensation · Dramatic B&W black skies, bold contrast & opens 3 stops wider for shallow bokeh',
   },
   {
-    id: 'uv-yellow',
-    name: 'UV + Yellow (#8) Stacked',
-    shortName: 'UV + YELLOW',
-    factor: '2× (+1 EV)',
-    stops: 1,
-    color: '#E3A82B',
-    effect: '+1 stop compensation (UV adds 0 stops; Yellow #8 adds +1 stop)',
-  },
-  {
-    id: 'uv-red',
-    name: 'UV + Red (#25) Stacked',
-    shortName: 'UV + RED',
+    id: 'nd8',
+    name: 'Neutral Density ND8 (0.9 · 3-Stop)',
+    shortName: 'ND8 (3-STOP)',
     factor: '8× (+3 EV)',
     stops: 3,
-    color: '#D9622B',
-    effect: '+3 stops compensation (UV adds 0 stops; Red #25 adds +3 stops)',
+    color: '#8C8270',
+    effect: '+3 stops compensation · Unlocks wide-open f/1.4–f/2 portrait bokeh in bright sun on 1/500s–1/1000s 35mm cameras',
   },
 ];
 
@@ -158,18 +204,17 @@ export interface HandheldSafety {
   eqFocalLengthMm: number;
 }
 
+export function isHalfFrame35mm(camera: Camera): boolean {
+  return (
+    camera.mount === 'olympus-pen-f' ||
+    camera.id.includes('demi') ||
+    camera.id.includes('pen-')
+  );
+}
+
 export function get35mmEquivalentFocalLength(camera: Camera, lens: Lens): number {
-  if (camera.mount === 'olympus-pen-f' || camera.id.includes('demi') || camera.id.includes('pen-')) {
+  if (isHalfFrame35mm(camera)) {
     return Math.round(lens.focalLength * 1.44);
-  }
-  if (camera.mount === 'pentax-67') {
-    return Math.round(lens.focalLength * 0.5);
-  }
-  if (camera.format === '120') {
-    return Math.round(lens.focalLength * 0.55);
-  }
-  if (camera.format === 'Instant') {
-    return Math.round(lens.focalLength * 0.45);
   }
   return lens.focalLength;
 }
@@ -473,10 +518,10 @@ export function recommendGritty(
 
   const zoneFocusHint =
     lens.focalLength <= 35
-      ? `${lens.focalLength}mm Wide Street Zone: Set f/8–f/11 focused at ~2.5m (sharp from 1.4m to ∞).`
+      ? `${lens.focalLength}mm Wide 35mm Street Zone: Set f/8–f/11 focused at ~2.5m (sharp from 1.4m to ∞).`
       : lens.focalLength <= 58
-      ? `${lens.focalLength}mm Standard Street Zone: Set f/8–f/11 focused at ~3.5m (sharp from 2.2m to ∞).`
-      : `${lens.focalLength}mm Tele / Medium Format: Use ${formatAperture(bokehSetting?.aperture ?? lens.apertures[0])} for gritty subject isolation or f/8+ for compressed street layers.`;
+      ? `${lens.focalLength}mm Standard 35mm Street Zone: Set f/8–f/11 focused at ~3.5m (sharp from 2.2m to ∞).`
+      : `${lens.focalLength}mm 35mm Telephoto: Use ${formatAperture(bokehSetting?.aperture ?? lens.apertures[0])} for subject isolation or f/8+ for compressed street layers.`;
 
   return {
     style,
@@ -491,6 +536,62 @@ export function recommendGritty(
     zoneSetting,
     bokehSetting,
     dragSetting,
+  };
+}
+
+export interface ReciprocityEntry {
+  meteredSec: number;
+  correctedSec: number;
+}
+
+export interface ReciprocityInfo {
+  exponent: number;
+  stockLabel: string;
+  note: string;
+  /** True when either the active setting or ideal exposure reaches >= 0.5s (approaching Bulb / 1s reciprocity threshold). */
+  isLongExposureScene: boolean;
+  /** Metered shutter speed in seconds (if >= 1s, otherwise 1s baseline). */
+  meteredSec: number;
+  /** Schwarzschild-corrected exposure time in seconds for meteredSec. */
+  correctedSec: number;
+  /** Quick reference Bulb table for 1s, 2s, 4s, 8s, 15s metered times. */
+  bulbTable: ReciprocityEntry[];
+}
+
+export function calculateReciprocity(
+  shutterSec: number,
+  idealShutterSec: number,
+  aperture: number,
+  idealAperture: number,
+  stockName?: string,
+  reciprocityExponent?: number,
+  reciprocityNote?: string,
+): ReciprocityInfo {
+  const p = reciprocityExponent ?? 1.31;
+  const stockLabel = stockName ?? 'Standard 35mm Film';
+  const note =
+    reciprocityNote ?? 'Standard 35mm Schwarzschild curve p=1.31 (2s → 2.5s, 4s → 6s, 8s → 15s)';
+
+  // Calculate true metered time at the selected aperture: t = idealShutter * (aperture / idealAperture)^2
+  const trueMeteredAtAperture = idealShutterSec * (aperture / idealAperture) ** 2;
+  const effectiveMeteredSec = Math.max(shutterSec, trueMeteredAtAperture);
+  const isLongExposureScene = effectiveMeteredSec >= 0.5;
+  const meteredSec = Math.max(1, Math.round(effectiveMeteredSec * 10) / 10);
+  const correctedSec = Math.max(1, Math.round(meteredSec ** p * 2) / 2);
+
+  const bulbTable: ReciprocityEntry[] = [1, 2, 4, 8, 15].map((m) => ({
+    meteredSec: m,
+    correctedSec: m === 1 && p < 1.4 ? 1.5 : Math.round(m ** p),
+  }));
+
+  return {
+    exponent: p,
+    stockLabel,
+    note,
+    isLongExposureScene,
+    meteredSec,
+    correctedSec,
+    bulbTable,
   };
 }
 
@@ -515,7 +616,7 @@ export function formatError(stops: number): string {
 }
 
 export interface DofResult {
-  /** Circle of confusion in mm based on film format (e.g. 0.0290mm for 35mm). */
+  /** Circle of confusion in mm based on 35mm format (0.0290mm Full-Frame 35mm, 0.0210mm Half-Frame 35mm). */
   cocMm: number;
   /** Subject focus distance in meters. */
   subjectDistanceM: number;
@@ -543,8 +644,8 @@ export interface DofResult {
 }
 
 /**
- * Computes optical Depth of Field metrics for the given camera format, lens
- * focal length, aperture stop, and subject focus distance.
+ * Computes optical Depth of Field metrics for 35mm Full-Frame (24x36mm) and
+ * 35mm Half-Frame (18x24mm) cameras.
  */
 export function calculateDof(
   camera: Camera,
@@ -552,14 +653,7 @@ export function calculateDof(
   aperture: number,
   subjectDistanceM: number,
 ): DofResult {
-  const cocMm =
-    camera.id === 'olympus-pen-f'
-      ? 0.021
-      : camera.format === '120'
-      ? camera.mount === 'pentax-67'
-        ? 0.055
-        : 0.045
-      : 0.029;
+  const cocMm = isHalfFrame35mm(camera) ? 0.021 : 0.029;
 
   const f = lens.focalLength; // mm
   const N = aperture;

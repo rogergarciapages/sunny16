@@ -34,6 +34,8 @@ import {
   LightDirectionId,
   evaluateHandheldSafety,
   get35mmEquivalentFocalLength,
+  isHalfFrame35mm,
+  calculateReciprocity,
 } from './lib/exposure';
 import WeatherIcon from './components/WeatherIcon';
 import DepthOfFieldIndicator from './components/DepthOfFieldIndicator';
@@ -97,9 +99,13 @@ export default function App() {
   const camera = cameras.find((c) => c.id === cameraId && c.brandId === brandId) ?? brandCameras[0];
 
   const [gearCollapsed, setGearCollapsed] = useState<boolean>(false);
+  const [filmDrawerOpen, setFilmDrawerOpen] = useState<boolean>(false);
+  const [quickTweaksOpen, setQuickTweaksOpen] = useState<boolean>(false);
+  const [reciprocityOpen, setReciprocityOpen] = useState<boolean>(false);
+  const [showAllFilmGuideStocks, setShowAllFilmGuideStocks] = useState<boolean>(false);
   const [cameraDecade, setCameraDecade] = useState<'all' | '60s' | '70s' | '80s' | '90s'>('all');
   const [cameraSearch, setCameraSearch] = useState<string>('');
-  const [activeDetailTab, setActiveDetailTab] = useState<'dof' | 'filters' | 'grit' | 'film' | 'all'>('dof');
+  const [activeDetailTab, setActiveDetailTab] = useState<'none' | 'dof' | 'filters' | 'grit' | 'film' | 'all'>('dof');
 
   const filteredBrandCameras = useMemo(() => {
     const q = cameraSearch.trim().toLowerCase();
@@ -242,12 +248,12 @@ export default function App() {
             {[C.mustard, C.orange, C.brown, C.teal].map((c) => <View key={c} style={[styles.stripe, { backgroundColor: c }]} />)}
           </View>
           <View style={[styles.masthead, compact && { paddingBottom: 8, marginBottom: 4 }]}>
-            <Text style={styles.kicker}>THE ANALOG PHOTOGRAPHER&apos;S POCKET GUIDE · NO. 16</Text>
+            <Text style={styles.kicker}>THE 35MM ANALOG PHOTOGRAPHER&apos;S POCKET GUIDE · NO. 16</Text>
             <Text style={[styles.title, compact && { fontSize: 58, lineHeight: 60 }]} accessibilityRole="header">
               SUNNY 16
             </Text>
             <Text style={[styles.tagline, compact && { fontSize: 13 }]}>
-              &quot;Set shutter speed closest to the film speed&quot;
+              &quot;Set shutter speed closest to the 35mm film speed&quot;
             </Text>
           </View>
 
@@ -357,7 +363,7 @@ export default function App() {
           {/* Steps 1–4 (Collapsible Gear Setup) */}
           {!gearCollapsed && (
             <View nativeID="gear-setup-steps">
-              <Section step="1" title="Film Speed · ISO / ASA & Classic Film Stocks">
+              <Section step="1" title="Film Speed · ISO / ASA">
                 {films.map((f) => (
                   <Chip
                     key={f.iso}
@@ -374,70 +380,107 @@ export default function App() {
                 ))}
               </Section>
 
-              {/* Classic Film Stock Presets & Latitude Guide */}
+              {/* Foldable Fine-Tuning Drawer: Classic 35mm Film Stock Presets & Latitude / Reciprocity Guide */}
               <View style={styles.filmStockBox} nativeID="film-stock-presets">
-                <Text style={styles.filmStockHeaderLabel}>
-                  CLASSIC FILM STOCK PRESETS (TAP TO LOAD ISO & LATITUDE GUIDE):
-                </Text>
-                <View style={styles.chipRow}>
-                  <Pressable
-                    nativeID="stock-generic"
-                    onPress={() => setFilmStockId(undefined)}
-                    style={[styles.stockPill, !activeFilmStock && styles.stockPillActive]}
-                  >
-                    <Text style={[styles.stockPillTitle, !activeFilmStock && { color: C.paper }]}>
-                      GENERIC ISO {iso}
+                <Pressable
+                  nativeID="btn-toggle-film-drawer"
+                  onPress={() => setFilmDrawerOpen((v) => !v)}
+                  style={styles.foldableDrawerHeader}
+                >
+                  <View style={styles.foldableHeaderLeft}>
+                    <FilmStripSvgIcon size={15} color={C.ink} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.foldableHeaderTitle}>
+                        OPTIONAL FINE-TUNING: 35MM FILM EMULSION, LATITUDE & RECIPROCITY GUIDE
+                      </Text>
+                      <Text style={styles.foldableHeaderSub}>
+                        {activeFilmStock
+                          ? `Loaded: ${activeFilmStock.name} (${activeFilmStock.process} · Latitude +${activeFilmStock.latitudeOverStops}/−${activeFilmStock.latitudeUnderStops} EV)`
+                          : `Loaded: Generic ISO ${iso} Standard Curve — tap to pick a specific 35mm film roll`}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.foldableToggleBadge}>
+                    <Text style={styles.foldableToggleBadgeText}>
+                      {filmDrawerOpen
+                        ? '▲ HIDE FILM STOCKS'
+                        : `▼ CHOOSE FILM STOCK (${filmStocks.length})`}
                     </Text>
-                    <Text style={[styles.stockPillSub, !activeFilmStock && { color: C.paperDark }]}>
-                      STANDARD CURVE
+                  </View>
+                </Pressable>
+
+                {filmDrawerOpen && (
+                  <View style={styles.foldableDrawerBody}>
+                    <Text style={styles.filmStockHeaderLabel}>
+                      TAP ANY 35MM FILM ROLL BELOW TO LOAD ITS ISO, LATITUDE & RECIPROCITY CURVE:
                     </Text>
-                  </Pressable>
-                  {filmStocks.map((stock) => {
-                    const active = activeFilmStock?.id === stock.id;
-                    return (
+                    <View style={styles.chipRow}>
                       <Pressable
-                        key={stock.id}
-                        nativeID={`stock-${stock.id}`}
-                        onPress={() => {
-                          setIso(stock.iso);
-                          setFilmStockId(stock.id);
-                        }}
-                        style={[styles.stockPill, active && styles.stockPillActive]}
+                        nativeID="stock-generic"
+                        onPress={() => setFilmStockId(undefined)}
+                        style={[styles.stockPill, !activeFilmStock && styles.stockPillActive]}
                       >
-                        <Text style={[styles.stockPillTitle, active && { color: C.paper }]}>
-                          {stock.shortName}
+                        <Text style={[styles.stockPillTitle, !activeFilmStock && { color: C.paper }]}>
+                          GENERIC ISO {iso}
                         </Text>
-                        <Text style={[styles.stockPillSub, active && { color: C.mustard }]}>
-                          ISO {stock.iso} · {stock.process.split(' ')[0]}
+                        <Text style={[styles.stockPillSub, !activeFilmStock && { color: C.paperDark }]}>
+                          STANDARD CURVE
                         </Text>
                       </Pressable>
-                    );
-                  })}
-                </View>
-                {activeFilmStock && (
-                  <View style={styles.filmStockBanner}>
-                    <View style={styles.filmStockBannerHead}>
-                      <Text style={styles.filmStockBannerTitle}>
-                        {activeFilmStock.name.toUpperCase()} · {activeFilmStock.process.toUpperCase()}
-                      </Text>
-                      <View style={styles.filmStockBadgesRow}>
-                        <View style={styles.filmLatitudeBadge}>
-                          <Text style={styles.filmLatitudeBadgeText}>
-                            LATITUDE: +{activeFilmStock.latitudeOverStops} / −{activeFilmStock.latitudeUnderStops} EV
-                          </Text>
-                        </View>
-                        <View style={[styles.filmLatitudeBadge, { backgroundColor: C.teal }]}>
-                          <Text style={[styles.filmLatitudeBadgeText, { color: C.paper }]}>
-                            GRAIN: {activeFilmStock.grain.toUpperCase()}
-                          </Text>
-                        </View>
-                      </View>
+                      {filmStocks.map((stock) => {
+                        const active = activeFilmStock?.id === stock.id;
+                        return (
+                          <Pressable
+                            key={stock.id}
+                            nativeID={`stock-${stock.id}`}
+                            onPress={() => {
+                              setIso(stock.iso);
+                              setFilmStockId(stock.id);
+                            }}
+                            style={[styles.stockPill, active && styles.stockPillActive]}
+                          >
+                            <Text style={[styles.stockPillTitle, active && { color: C.paper }]}>
+                              {stock.shortName}
+                            </Text>
+                            <Text style={[styles.stockPillSub, active && { color: C.mustard }]}>
+                              ISO {stock.iso} · {stock.process.split(' ')[0]}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
                     </View>
-                    <Text style={styles.filmStockCharText}>{activeFilmStock.character}</Text>
-                    <Text style={styles.filmStockTipText}>
-                      <Text style={{ fontFamily: display, color: C.orange, fontSize: 13 }}>FIELD TIP: </Text>
-                      {activeFilmStock.fieldTip}
-                    </Text>
+                    {activeFilmStock && (
+                      <View style={styles.filmStockBanner}>
+                        <View style={styles.filmStockBannerHead}>
+                          <Text style={styles.filmStockBannerTitle}>
+                            {activeFilmStock.name.toUpperCase()} · {activeFilmStock.process.toUpperCase()}
+                          </Text>
+                          <View style={styles.filmStockBadgesRow}>
+                            <View style={styles.filmLatitudeBadge}>
+                              <Text style={styles.filmLatitudeBadgeText}>
+                                LATITUDE: +{activeFilmStock.latitudeOverStops} / −{activeFilmStock.latitudeUnderStops} EV
+                              </Text>
+                            </View>
+                            <View style={[styles.filmLatitudeBadge, { backgroundColor: C.teal }]}>
+                              <Text style={[styles.filmLatitudeBadgeText, { color: C.paper }]}>
+                                GRAIN: {activeFilmStock.grain.toUpperCase()}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        <Text style={styles.filmStockCharText}>{activeFilmStock.character}</Text>
+                        <Text style={styles.filmStockTipText}>
+                          <Text style={{ fontFamily: display, color: C.orange, fontSize: 13 }}>FIELD TIP: </Text>
+                          {activeFilmStock.fieldTip}
+                        </Text>
+                        <Text style={styles.filmStockTipText}>
+                          <Text style={{ fontFamily: display, color: C.mustard, fontSize: 13 }}>
+                            LONG EXPOSURE RECIPROCITY (≥1S):{' '}
+                          </Text>
+                          {activeFilmStock.reciprocityNote}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -1026,6 +1069,18 @@ export default function App() {
       ? evaluateHandheldSafety(bestDisplay.shutter, camera!, lens!)
       : null;
 
+    const reciprocity = bestDisplay
+      ? calculateReciprocity(
+          bestDisplay.shutter,
+          r.ideal.shutter,
+          bestDisplay.aperture,
+          r.ideal.aperture,
+          activeFilmStock?.name,
+          activeFilmStock?.reciprocityExponent,
+          activeFilmStock?.reciprocityNote,
+        )
+      : null;
+
     const pickClosestValidAperture = (targetAp: number): number => {
       const validPool = [
         ...(rAuto.best ? [rAuto.best.aperture] : []),
@@ -1162,58 +1217,7 @@ export default function App() {
               </View>
             )}
 
-            {/* Quick In-Field Filter & Gritty Strip (Always accessible without switching tabs) */}
-            <View style={styles.quickTweaksBox} nativeID="quick-tweaks-strip">
-              <View style={styles.quickTweakCol}>
-                <Text style={styles.quickTweakLabel}>
-                  SCREW-IN LENS FILTER (AUTO-COMPENSATES EXPOSURE FOR FILTER LIGHT LOSS):
-                </Text>
-                <View style={styles.filterPillRow}>
-                  {lensFilters.map((f) => {
-                    const isSelected = f.id === activeFilter.id;
-                    return (
-                      <Pressable
-                        key={`quick-f-${f.id}`}
-                        onPress={() => setFilterId(f.id)}
-                        style={[
-                          styles.quickMiniPill,
-                          isSelected && { backgroundColor: f.color, borderColor: f.color },
-                        ]}
-                      >
-                        <Text style={[styles.quickMiniPillText, isSelected && { color: C.ink }]}>
-                          {f.shortName} ({f.factor})
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-              <View style={styles.quickTweakCol}>
-                <Text style={styles.quickTweakLabel}>
-                  B&W PUSH / PULL DEVELOPMENT & STREET CONTRAST RECIPE:
-                </Text>
-                <View style={styles.filterPillRow}>
-                  {grittyStyles.map((g) => {
-                    const isSelected = g.id === activeGritty.id;
-                    return (
-                      <Pressable
-                        key={`quick-g-${g.id}`}
-                        onPress={() => setGrittyId(g.id)}
-                        style={[
-                          styles.quickMiniPill,
-                          isSelected && { backgroundColor: C.orange, borderColor: C.mustard },
-                        ]}
-                      >
-                        <Text style={[styles.quickMiniPillText, isSelected && { color: C.paper }]}>
-                          {g.shortName} ({g.badge})
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            </View>
-
+            {/* Equivalent Exposures immediately below the primary readout */}
             {r.alternatives.length > 0 && (
               <>
                 <Text style={styles.altTitle}>
@@ -1263,58 +1267,199 @@ export default function App() {
               </>
             )}
 
-            {/* UX #4: 1968 Folder Tabs for Deep-Dive Panels */}
-            <View style={styles.folderTabsBar} nativeID="detail-folder-tabs">
-              {[
-                {
-                  id: 'dof' as const,
-                  label: '⊕ DEPTH OF FIELD & BOKEH',
-                  badge: `Focus & sharp zone (${formatAperture(bestDisplay.aperture)})`,
-                },
-                {
-                  id: 'filters' as const,
-                  label: '◐ LENS FILTER COMPARE',
-                  badge: `UV / Yellow / Red (${activeFilter.shortName})`,
-                },
-                {
-                  id: 'grit' as const,
-                  label: '▨ PUSH / PULL & GRIT LAB',
-                  badge: `B&W recipes (${activeGritty.shortName})`,
-                },
-                {
-                  id: 'film' as const,
-                  label: 'FILM LATITUDE GUIDE',
-                  badge: `Highlight/shadow (${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`})`,
-                  isFilmTab: true,
-                },
-                {
-                  id: 'all' as const,
-                  label: '⊞ SHOW ALL 4 PANELS',
-                  badge: 'Expand full reference sheet',
-                },
-              ].map((tab) => {
-                const active = activeDetailTab === tab.id;
-                return (
-                  <Pressable
-                    key={tab.id}
-                    nativeID={`tab-${tab.id}`}
-                    onPress={() => setActiveDetailTab(tab.id)}
-                    style={[styles.folderTab, active && styles.folderTabActive]}
-                  >
-                    <View style={styles.folderTabTitleRow}>
-                      {tab.isFilmTab && (
-                        <FilmStripSvgIcon size={14} color={active ? C.ink : C.paper} />
-                      )}
-                      <Text style={[styles.folderTabTitle, active && { color: C.ink }]}>
-                        {tab.label}
+            {/* Foldable Fine-Tuning 1: 35mm Schwarzschild Reciprocity Failure Calculator (Long Exposures & Low-Light Bulb Guide) */}
+            {reciprocity && (reciprocity.isLongExposureScene || cond.category === 'lowlight') && (
+              <View style={styles.reciprocityBanner} nativeID="reciprocity-banner">
+                <Pressable
+                  nativeID="btn-toggle-reciprocity"
+                  onPress={() => setReciprocityOpen((v) => !v)}
+                  style={styles.darkFoldableHeader}
+                >
+                  <View style={styles.reciprocityHeadRow}>
+                    <View style={styles.reciprocityBadge}>
+                      <Text style={styles.reciprocityBadgeText}>
+                        LONG-EXPOSURE RECIPROCITY (≥1S BULB)
                       </Text>
                     </View>
-                    <Text style={[styles.folderTabSub, active && { color: C.brown }]}>
-                      {tab.badge}
+                    <Text style={styles.reciprocitySubText}>
+                      {reciprocity.isLongExposureScene
+                        ? `Metered ${reciprocity.meteredSec}s → Shoot ${reciprocity.correctedSec}s on ${reciprocity.stockLabel}`
+                        : `${reciprocity.stockLabel} · Tap to view ≥1s tripod Bulb correction table`}
                     </Text>
+                  </View>
+                  <Text style={styles.darkFoldableToggleText}>
+                    {reciprocityOpen ? '▲ HIDE BULB TABLE' : '▼ SHOW BULB TABLE'}
+                  </Text>
+                </Pressable>
+
+                {reciprocityOpen && (
+                  <View style={{ marginTop: 6, gap: 6 }}>
+                    <Text style={styles.reciprocitySubText}>{reciprocity.note}</Text>
+                    {reciprocity.isLongExposureScene && (
+                      <Text style={styles.reciprocityCallout}>
+                        At {formatAperture(bestDisplay.aperture)}, metered{' '}
+                        <Text style={{ color: C.mustard }}>{reciprocity.meteredSec}s</Text> requires{' '}
+                        <Text style={{ color: C.orange, fontFamily: display, fontSize: 16 }}>
+                          {reciprocity.correctedSec} SECONDS
+                        </Text>{' '}
+                        on tripod/Bulb to compensate for Schwarzschild emulsion slowdown.
+                      </Text>
+                    )}
+                    <View style={styles.bulbTableRow}>
+                      {reciprocity.bulbTable.map((entry) => (
+                        <View key={entry.meteredSec} style={styles.bulbChip}>
+                          <Text style={styles.bulbMeteredText}>METER {entry.meteredSec}S</Text>
+                          <Text style={styles.bulbCorrectedText}>SHOOT {entry.correctedSec}S</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Foldable Fine-Tuning 2: Quick In-Field Filter & Gritty Strip */}
+            <View style={styles.quickTweaksBox} nativeID="quick-tweaks-strip">
+              <Pressable
+                nativeID="btn-toggle-quick-tweaks"
+                onPress={() => setQuickTweaksOpen((v) => !v)}
+                style={styles.darkFoldableHeader}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.quickTweakLabel}>
+                    OPTIONAL FINE-TUNING: SCREW-IN LENS FILTERS (CPL / B&W / ND) & PUSH / PULL
+                  </Text>
+                  <Text style={styles.darkFoldableSub}>
+                    Active Filter: {activeFilter.name} ({activeFilter.factor}) · Push/Style: {activeGritty.shortName} ({activeGritty.badge})
+                  </Text>
+                </View>
+                <Text style={styles.darkFoldableToggleText}>
+                  {quickTweaksOpen ? '▲ HIDE MODIFIERS' : '▼ CHANGE FILTER / PUSH'}
+                </Text>
+              </Pressable>
+
+              {quickTweaksOpen && (
+                <View style={{ marginTop: 8, gap: 10 }}>
+                  <View style={styles.quickTweakCol}>
+                    <Text style={styles.quickTweakLabel}>
+                      SCREW-IN LENS FILTER (AUTO-COMPENSATES EXPOSURE FOR FILTER LIGHT LOSS):
+                    </Text>
+                    <View style={styles.filterPillRow}>
+                      {lensFilters.map((f) => {
+                        const isSelected = f.id === activeFilter.id;
+                        return (
+                          <Pressable
+                            key={`quick-f-${f.id}`}
+                            onPress={() => setFilterId(f.id)}
+                            style={[
+                              styles.quickMiniPill,
+                              isSelected && { backgroundColor: f.color, borderColor: f.color },
+                            ]}
+                          >
+                            <Text style={[styles.quickMiniPillText, isSelected && { color: C.ink }]}>
+                              {f.shortName} ({f.factor})
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                  <View style={styles.quickTweakCol}>
+                    <Text style={styles.quickTweakLabel}>
+                      B&W PUSH / PULL DEVELOPMENT & STREET CONTRAST RECIPE:
+                    </Text>
+                    <View style={styles.filterPillRow}>
+                      {grittyStyles.map((g) => {
+                        const isSelected = g.id === activeGritty.id;
+                        return (
+                          <Pressable
+                            key={`quick-g-${g.id}`}
+                            onPress={() => setGrittyId(g.id)}
+                            style={[
+                              styles.quickMiniPill,
+                              isSelected && { backgroundColor: C.orange, borderColor: C.mustard },
+                            ]}
+                          >
+                            <Text style={[styles.quickMiniPillText, isSelected && { color: C.paper }]}>
+                              {g.shortName} ({g.badge})
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* UX #4: 1968 Folder Tabs for Deep-Dive Panels (Tap active tab to fold shut) */}
+            <View style={styles.folderTabsWrap}>
+              <View style={styles.folderTabsHeaderRow}>
+                <Text style={styles.folderTabsKicker}>
+                  OPTIONAL DEEP-DIVE REFERENCE PANELS (TAP ANY TAB TO OPEN · TAP ACTIVE TAB TO FOLD SHUT):
+                </Text>
+                {activeDetailTab !== 'none' && (
+                  <Pressable
+                    nativeID="btn-fold-all-tabs"
+                    onPress={() => setActiveDetailTab('none')}
+                    style={styles.foldTabsCloseBtn}
+                  >
+                    <Text style={styles.foldTabsCloseText}>▲ FOLD PANEL SHUT</Text>
                   </Pressable>
-                );
-              })}
+                )}
+              </View>
+              <View style={styles.folderTabsBar} nativeID="detail-folder-tabs">
+                {[
+                  {
+                    id: 'dof' as const,
+                    label: '⊕ DEPTH OF FIELD & BOKEH',
+                    badge: `Focus & sharp zone (${formatAperture(bestDisplay.aperture)})`,
+                  },
+                  {
+                    id: 'filters' as const,
+                    label: '◐ LENS FILTER COMPARE',
+                    badge: `CPL / B&W / ND (${activeFilter.shortName})`,
+                  },
+                  {
+                    id: 'grit' as const,
+                    label: '▨ PUSH / PULL & GRIT LAB',
+                    badge: `B&W recipes (${activeGritty.shortName})`,
+                  },
+                  {
+                    id: 'film' as const,
+                    label: 'FILM LATITUDE GUIDE',
+                    badge: `Latitude & Reciprocity (${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`})`,
+                    isFilmTab: true,
+                  },
+                  {
+                    id: 'all' as const,
+                    label: '⊞ SHOW ALL 4 PANELS',
+                    badge: 'Expand full reference sheet',
+                  },
+                ].map((tab) => {
+                  const active = activeDetailTab === tab.id;
+                  return (
+                    <Pressable
+                      key={tab.id}
+                      nativeID={`tab-${tab.id}`}
+                      onPress={() => setActiveDetailTab(active ? 'none' : tab.id)}
+                      style={[styles.folderTab, active && styles.folderTabActive]}
+                    >
+                      <View style={styles.folderTabTitleRow}>
+                        {tab.isFilmTab && (
+                          <FilmStripSvgIcon size={14} color={active ? C.ink : C.paper} />
+                        )}
+                        <Text style={[styles.folderTabTitle, active && { color: C.ink }]}>
+                          {tab.label}
+                        </Text>
+                      </View>
+                      <Text style={[styles.folderTabSub, active && { color: C.brown }]}>
+                        {tab.badge}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
             {/* TAB 1: Depth of Field & Bokeh Visualizer */}
@@ -1333,15 +1478,18 @@ export default function App() {
                 }}
                 onSelectDistance={handleSelectDistance}
                 onSelectHyperfocal={handleSelectHyperfocal}
+                onEquipFilter={(fid) => setFilterId(fid)}
               />
             )}
 
             {/* TAB 2: Filter Compensation & Equivalent Exposures Comparison */}
             {(activeDetailTab === 'filters' || activeDetailTab === 'all') && (
               <View style={styles.filterSection}>
-                <Text style={styles.altTitle}>LENS FILTER COMPENSATION · UV / YELLOW / RED</Text>
+                <Text style={styles.altTitle}>
+                  35MM LENS FILTER KIT · POLARIZER (CPL) / B&W CONTRAST / ND / WARMING
+                </Text>
                 <Text style={styles.altHint}>
-                  Tap a filter below to apply it across the table, or compare how UV, Yellow (#8), and Red (#25) shift your exposure & bokeh options:
+                  Tap any filter below to equip it across the table, or compare how Polarizers (CPL), Yellow (#8), Orange (#16), Green (#11), Red (#25), 85B, and Neutral Density (ND4/ND8) shift your exposure & unlock wider bokeh stops:
                 </Text>
 
                 <View style={styles.filterPillRow}>
@@ -1588,12 +1736,36 @@ export default function App() {
             {/* TAB 4: Film Stock Latitude & Emulsion Guide */}
             {(activeDetailTab === 'film' || activeDetailTab === 'all') && (
               <View style={styles.filterSection} nativeID="film-guide-tab">
-                <Text style={styles.altTitle}>CLASSIC FILM STOCK & EMULSION LATITUDE GUIDE</Text>
-                <Text style={styles.altHint}>
-                  Tap any film stock below to load its ISO and inspect its highlight/shadow latitude, grain profile & field advice:
-                </Text>
+                <View style={styles.grittyHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.altTitle}>
+                      35MM FILM STOCK LATITUDE & RECIPROCITY GUIDE
+                    </Text>
+                    <Text style={styles.altHint}>
+                      Showing{' '}
+                      {showAllFilmGuideStocks || filmStocks.filter((s) => s.iso === iso).length === 0
+                        ? `all ${filmStocks.length} 35mm emulsions`
+                        : `${filmStocks.filter((s) => s.iso === iso).length} film stock(s) matching ISO ${iso}`}
+                      {' — '}tap any card to load its ISO, latitude & Schwarzschild reciprocity curve:
+                    </Text>
+                  </View>
+                  <Pressable
+                    nativeID="btn-toggle-all-film-stocks"
+                    onPress={() => setShowAllFilmGuideStocks((v) => !v)}
+                    style={styles.foldTabsCloseBtn}
+                  >
+                    <Text style={styles.foldTabsCloseText}>
+                      {showAllFilmGuideStocks
+                        ? `▲ SHOW ONLY ISO ${iso} STOCKS`
+                        : `▼ SHOW ALL ${filmStocks.length} EMULSIONS`}
+                    </Text>
+                  </Pressable>
+                </View>
                 <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
-                  {filmStocks.map((stock) => {
+                  {(showAllFilmGuideStocks || filmStocks.filter((s) => s.iso === iso).length === 0
+                    ? filmStocks
+                    : filmStocks.filter((s) => s.iso === iso)
+                  ).map((stock) => {
                     const isSelected = activeFilmStock?.id === stock.id;
                     return (
                       <Pressable
@@ -1626,6 +1798,10 @@ export default function App() {
                         <Text style={[styles.grittyLabNote, { marginTop: 4 }]}>
                           <Text style={{ color: C.orange }}>FIELD TIP: </Text>
                           {stock.fieldTip}
+                        </Text>
+                        <Text style={[styles.grittyLabNote, { marginTop: 3 }]}>
+                          <Text style={{ color: C.mustard }}>RECIPROCITY (≥1S): </Text>
+                          {stock.reciprocityNote}
                         </Text>
                       </Pressable>
                     );
@@ -2349,14 +2525,43 @@ const styles = StyleSheet.create({
     color: C.paper,
     letterSpacing: 0.8,
   },
-  folderTabsBar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+  folderTabsWrap: {
     marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 2,
     borderColor: C.mustard,
+    gap: 8,
+  },
+  folderTabsHeaderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  folderTabsKicker: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.mustard,
+    letterSpacing: 0.6,
+  },
+  foldTabsCloseBtn: {
+    borderWidth: 1,
+    borderColor: C.mustard,
+    backgroundColor: '#262019',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  foldTabsCloseText: {
+    fontFamily: display,
+    fontSize: 12,
+    color: C.mustard,
+    letterSpacing: 0.8,
+  },
+  folderTabsBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   folderTab: {
     flex: 1,
@@ -2388,5 +2593,142 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: C.paperDark,
     marginTop: 1,
+  },
+
+  // --- FOLDABLE FINE-TUNING DRAWERS ---
+  foldableDrawerHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  foldableHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    minWidth: 200,
+  },
+  foldableHeaderTitle: {
+    fontFamily: display,
+    fontSize: 16,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+  foldableHeaderSub: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.brown,
+    marginTop: 1,
+  },
+  foldableToggleBadge: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.mustard,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  foldableToggleBadgeText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.ink,
+    letterSpacing: 0.8,
+  },
+  foldableDrawerBody: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1.5,
+    borderColor: C.ink,
+  },
+  darkFoldableHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  darkFoldableSub: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.paperDark,
+    marginTop: 2,
+  },
+  darkFoldableToggleText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.mustard,
+    letterSpacing: 0.8,
+    borderWidth: 1,
+    borderColor: C.mustard,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: C.ink,
+  },
+
+  // --- 35MM RECIPROCITY FAILURE & BULB GUIDE ---
+  reciprocityBanner: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#231C16',
+    borderWidth: 1.5,
+    borderColor: C.mustard,
+    gap: 6,
+  },
+  reciprocityHeadRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reciprocityBadge: {
+    backgroundColor: C.mustard,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: C.paper,
+  },
+  reciprocityBadgeText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+  reciprocitySubText: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.paper,
+    flex: 1,
+    minWidth: 200,
+  },
+  reciprocityCallout: {
+    fontFamily: type,
+    fontSize: 12,
+    color: C.paper,
+  },
+  bulbTableRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  bulbChip: {
+    borderWidth: 1,
+    borderColor: '#5A4E40',
+    backgroundColor: C.ink,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  bulbMeteredText: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.paperDark,
+  },
+  bulbCorrectedText: {
+    fontFamily: display,
+    fontSize: 15,
+    color: C.mustard,
+    letterSpacing: 0.8,
   },
 });

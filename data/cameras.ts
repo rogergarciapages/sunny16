@@ -70,10 +70,11 @@ export const cameras: Camera[] = [
   { id: 'canon-eos-30', brandId: 'canon', name: 'EOS 30 / 33 (Elan 7)', year: 2000, format: '35mm', mount: 'canon-ef', shutterSpeeds: full(4000), isoRange: [6, 6400] },
   { id: 'canon-eos-1v', brandId: 'canon', name: 'EOS-1v', year: 2000, format: '35mm', mount: 'canon-ef', shutterSpeeds: full(8000), isoRange: [6, 6400] },
 
-  // Pentax (60s–90s)
+  // Pentax (60s–90s · 35mm SLRs)
   { id: 'pentax-sv', brandId: 'pentax', name: 'SV', year: 1962, format: '35mm', mount: 'm42', shutterSpeeds: full(1000), isoRange: [10, 1600] },
-  { id: 'pentax-spotmatic', brandId: 'pentax', name: 'Spotmatic', year: 1964, format: '35mm', mount: 'm42', shutterSpeeds: full(1000), isoRange: [20, 1600] },
-  { id: 'pentax-6x7', brandId: 'pentax', name: '6x7', year: 1969, format: '120', mount: 'pentax-67', shutterSpeeds: full(1000), isoRange: [12, 3200] },
+  { id: 'pentax-spotmatic', brandId: 'pentax', name: 'Spotmatic (SP)', year: 1964, format: '35mm', mount: 'm42', shutterSpeeds: full(1000), isoRange: [20, 1600] },
+  { id: 'pentax-spotmatic-ii', brandId: 'pentax', name: 'Spotmatic II (SP II)', year: 1971, format: '35mm', mount: 'm42', shutterSpeeds: full(1000), isoRange: [20, 3200] },
+  { id: 'pentax-es', brandId: 'pentax', name: 'Electro Spotmatic (ES)', year: 1971, format: '35mm', mount: 'm42', shutterSpeeds: full(1000), isoRange: [20, 1600] },
   { id: 'pentax-spotmatic-f', brandId: 'pentax', name: 'Spotmatic F', year: 1973, format: '35mm', mount: 'm42', shutterSpeeds: full(1000), isoRange: [20, 3200] },
   { id: 'pentax-kx', brandId: 'pentax', name: 'KX', year: 1975, format: '35mm', mount: 'pentax-k', shutterSpeeds: full(1000), isoRange: [8, 6400] },
   { id: 'pentax-k2', brandId: 'pentax', name: 'K2', year: 1975, format: '35mm', mount: 'pentax-k', shutterSpeeds: full(1000), isoRange: [8, 6400] },
@@ -90,7 +91,7 @@ export const cameras: Camera[] = [
   { id: 'pentax-z1', brandId: 'pentax', name: 'Z-1 (PZ-1)', year: 1991, format: '35mm', mount: 'pentax-k', shutterSpeeds: full(8000), isoRange: [6, 6400] },
   { id: 'pentax-mz5', brandId: 'pentax', name: 'MZ-5 (ZX-5)', year: 1995, format: '35mm', mount: 'pentax-k', shutterSpeeds: full(2000), isoRange: [6, 6400] },
   { id: 'pentax-mzm', brandId: 'pentax', name: 'MZ-M (ZX-M)', year: 1997, format: '35mm', mount: 'pentax-k', shutterSpeeds: full(2000), isoRange: [6, 6400] },
-  { id: 'pentax-67ii', brandId: 'pentax', name: '67 II', year: 1998, format: '120', mount: 'pentax-67', shutterSpeeds: full(1000), isoRange: [6, 6400] },
+  { id: 'pentax-mzs', brandId: 'pentax', name: 'MZ-S', year: 2001, format: '35mm', mount: 'pentax-k', shutterSpeeds: full(6000), isoRange: [6, 6400] },
 
   // Olympus (60s–90s)
   { id: 'olympus-pen-f', brandId: 'olympus', name: 'Pen F', year: 1963, format: '35mm', mount: 'olympus-pen-f', shutterSpeeds: full(500), isoRange: [25, 400] },
@@ -168,24 +169,26 @@ export const cameras: Camera[] = [
   { id: 'zenit-122', brandId: 'zenit', name: '122', year: 1990, format: '35mm', mount: 'm42', shutterSpeeds: s(30, 60, 125, 250, 500), isoRange: [25, 400] },
   { id: 'zenit-212k', brandId: 'zenit', name: '212k', year: 1995, format: '35mm', mount: 'pentax-k', shutterSpeeds: s(8, 15, 30, 60, 125, 250, 500), isoRange: [12, 1000] },
 
-  // Hasselblad (60s–90s)
-  { id: 'hasselblad-500c', brandId: 'hasselblad', name: '500C', year: 1957, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500) },
-  { id: 'hasselblad-500el', brandId: 'hasselblad', name: '500EL', year: 1965, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500) },
-  { id: 'hasselblad-500cm', brandId: 'hasselblad', name: '500 C/M', year: 1970, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500) },
-  { id: 'hasselblad-500elm', brandId: 'hasselblad', name: '500EL/M', year: 1971, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500) },
-  { id: 'hasselblad-2000fc', brandId: 'hasselblad', name: '2000FC', year: 1977, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(2000) },
-  { id: 'hasselblad-500elx', brandId: 'hasselblad', name: '500ELX', year: 1984, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500), isoRange: [16, 1000] },
-  { id: 'hasselblad-503cx', brandId: 'hasselblad', name: '503CX', year: 1988, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500), isoRange: [16, 1000] },
-  { id: 'hasselblad-205tcc', brandId: 'hasselblad', name: '205TCC', year: 1991, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(2000), isoRange: [12, 6400] },
-  { id: 'hasselblad-501c', brandId: 'hasselblad', name: '501C', year: 1994, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500) },
-  { id: 'hasselblad-503cw', brandId: 'hasselblad', name: '503CW', year: 1996, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500), isoRange: [16, 3200] },
-  { id: 'hasselblad-501cm', brandId: 'hasselblad', name: '501CM', year: 1997, format: '120', mount: 'hasselblad-v', shutterSpeeds: full(500) },
+  // Contax (50s–90s · 35mm SLRs, Rangefinders & Compacts)
+  { id: 'contax-iia', brandId: 'contax', name: 'IIa (Rangefinder)', year: 1950, format: '35mm', mount: 'contax-rf', shutterSpeeds: s(2, 5, 10, 25, 50, 100, 250, 500, 1250), isoRange: [6, 800] },
+  { id: 'contax-rts', brandId: 'contax', name: 'RTS', year: 1975, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(2000), isoRange: [12, 3200] },
+  { id: 'contax-139q', brandId: 'contax', name: '139 Quartz', year: 1979, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(1000), isoRange: [12, 3200] },
+  { id: 'contax-137ma', brandId: 'contax', name: '137 MA Quartz', year: 1981, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(1000), isoRange: [12, 3200] },
+  { id: 'contax-rts-ii', brandId: 'contax', name: 'RTS II Quartz', year: 1982, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(2000), isoRange: [12, 3200] },
+  { id: 'contax-159mm', brandId: 'contax', name: '159MM', year: 1985, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(4000), isoRange: [12, 3200] },
+  { id: 'contax-167mt', brandId: 'contax', name: '167MT', year: 1987, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(4000), isoRange: [6, 6400] },
+  { id: 'contax-rts-iii', brandId: 'contax', name: 'RTS III', year: 1990, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(8000), isoRange: [6, 6400] },
+  { id: 'contax-t2', brandId: 'contax', name: 'T2 (Titanium Compact)', year: 1990, format: '35mm', mount: 'fixed', fixedLensIds: ['zeiss-sonnar-38-2.8-t2'], shutterSpeeds: full(500), isoRange: [25, 5000] },
+  { id: 'contax-s2', brandId: 'contax', name: 'S2 (Mechanical Titanium)', year: 1992, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(4000), isoRange: [12, 6400] },
+  { id: 'contax-g1', brandId: 'contax', name: 'G1 (Rangefinder)', year: 1994, format: '35mm', mount: 'contax-g', shutterSpeeds: full(2000), isoRange: [6, 6400] },
+  { id: 'contax-g2', brandId: 'contax', name: 'G2 (Rangefinder)', year: 1996, format: '35mm', mount: 'contax-g', shutterSpeeds: full(6000), isoRange: [6, 6400] },
+  { id: 'contax-aria', brandId: 'contax', name: 'Aria', year: 1998, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(4000), isoRange: [6, 6400] },
 
-  // Yashica (60s–90s)
-  { id: 'yashica-mat', brandId: 'yashica', name: 'Yashica-Mat', year: 1957, format: '120', mount: 'fixed', fixedLensIds: ['yashinon-80-3.5-mat'], shutterSpeeds: full(500) },
+  // Yashica (60s–90s · 35mm Rangefinders, SLRs & Compacts)
+  { id: 'yashica-lynx-14', brandId: 'yashica', name: 'Lynx 14', year: 1965, format: '35mm', mount: 'fixed', fixedLensIds: ['yashinon-dx-45-1.4-lynx'], shutterSpeeds: full(500), isoRange: [10, 800] },
   { id: 'yashica-electro-35', brandId: 'yashica', name: 'Electro 35', year: 1966, format: '35mm', mount: 'fixed', fixedLensIds: ['yashinon-dx-45-1.7'], shutterSpeeds: full(500), isoRange: [12, 500] },
   { id: 'yashica-tl-electro-x', brandId: 'yashica', name: 'TL Electro-X', year: 1968, format: '35mm', mount: 'm42', shutterSpeeds: full(1000), isoRange: [25, 800] },
-  { id: 'yashica-mat-124g', brandId: 'yashica', name: 'Mat-124 G', year: 1970, format: '120', mount: 'fixed', fixedLensIds: ['yashinon-80-3.5'], shutterSpeeds: full(500), isoRange: [25, 400] },
+  { id: 'yashica-electro-35-cc', brandId: 'yashica', name: 'Electro 35 CC', year: 1970, format: '35mm', mount: 'fixed', fixedLensIds: ['color-yashinon-dx-35-1.8'], shutterSpeeds: s(8, 15, 30, 60, 125, 250), isoRange: [25, 500] },
   { id: 'yashica-electro-35-gsn', brandId: 'yashica', name: 'Electro 35 GSN', year: 1973, format: '35mm', mount: 'fixed', fixedLensIds: ['yashinon-dx-45-1.7'], shutterSpeeds: full(500), isoRange: [25, 1000] },
   { id: 'yashica-fx1', brandId: 'yashica', name: 'FX-1', year: 1975, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(1000), isoRange: [12, 1600] },
   { id: 'yashica-fx2', brandId: 'yashica', name: 'FX-2', year: 1976, format: '35mm', mount: 'contax-yashica', shutterSpeeds: full(1000), isoRange: [12, 1600] },

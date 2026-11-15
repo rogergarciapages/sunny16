@@ -1,7 +1,14 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Camera, Lens } from '../data/types';
-import { calculateDof, formatAperture, formatShutter, Setting } from '../lib/exposure';
+import {
+  calculateDof,
+  formatAperture,
+  formatShutter,
+  Setting,
+  FilterId,
+  isHalfFrame35mm,
+} from '../lib/exposure';
 
 const C = {
   paper: '#F3EAD3',
@@ -102,6 +109,7 @@ export default function DepthOfFieldIndicator({
   onSelectAperture,
   onSelectDistance,
   onSelectHyperfocal,
+  onEquipFilter,
 }: {
   camera: Camera;
   lens: Lens;
@@ -113,6 +121,7 @@ export default function DepthOfFieldIndicator({
   onSelectAperture: (aperture: number | undefined) => void;
   onSelectDistance: (distanceM: number, targetAperture: number) => void;
   onSelectHyperfocal: (targetAperture: number) => void;
+  onEquipFilter?: (filterId: FilterId) => void;
 }) {
   const sortedValidPairs = [...allExposurePairs].sort((a, b) => a.aperture - b.aperture);
   const widestValidAp = sortedValidPairs[0]?.aperture;
@@ -186,6 +195,12 @@ export default function DepthOfFieldIndicator({
   const unavailableLensStops = lens.apertures.filter(
     (ap) => !sortedValidPairs.some((p) => p.aperture === ap),
   );
+  const lockedWideStops =
+    widestValidAp !== undefined
+      ? lens.apertures.filter((ap) => ap < widestValidAp)
+      : [];
+  const snapFocusM = lens.focalLength <= 35 ? 2.5 : lens.focalLength <= 58 ? 3.5 : 5.0;
+  const snapDof = calculateDof(camera, lens, resolveValidPair(8)?.aperture ?? 8, snapFocusM);
 
   return (
     <View style={styles.container} nativeID="dof-indicator">
@@ -210,7 +225,7 @@ export default function DepthOfFieldIndicator({
         <Text style={styles.opticalItem}>
           Circle of confusion:{' '}
           <Text style={styles.opticalBold}>
-            {dof.cocMm.toFixed(4)}mm ({camera.format})
+            {dof.cocMm.toFixed(4)}mm ({isHalfFrame35mm(camera) ? '35mm Half-Frame' : '35mm Full-Frame'})
           </Text>
         </Text>
         <Text style={styles.opticalItem}>
@@ -336,16 +351,45 @@ export default function DepthOfFieldIndicator({
             })}
           </View>
           {unavailableLensStops.length > 0 && widestValidAp !== undefined && narrowestValidAp !== undefined && (
-            <Text style={styles.lightLimitNote}>
-              Light limit: Only{' '}
-              <Text style={{ color: C.mustard }}>
-                {widestValidAp === narrowestValidAp
-                  ? formatAperture(widestValidAp)
-                  : `${formatAperture(widestValidAp)} – ${formatAperture(narrowestValidAp)}`}
-              </Text>{' '}
-              can be properly exposed in this light with your camera shutter range (max{' '}
-              {formatShutter(fastestCameraShutter)}). Wider stops ({unavailableLensStops.map(formatAperture).join(', ')}) are locked out to prevent overexposure — add a Yellow/Red filter or lower ISO to use wider bokeh stops.
-            </Text>
+            <View style={styles.ndAdvisorBox} nativeID="nd-bokeh-advisor">
+              <Text style={styles.lightLimitNote}>
+                <Text style={{ fontFamily: display, color: C.mustard, fontSize: 13 }}>
+                  35MM SHUTTER CEILING ({formatShutter(fastestCameraShutter)} MAX):{' '}
+                </Text>
+                Only{' '}
+                <Text style={{ color: C.mustard }}>
+                  {widestValidAp === narrowestValidAp
+                    ? formatAperture(widestValidAp)
+                    : `${formatAperture(widestValidAp)} – ${formatAperture(narrowestValidAp)}`}
+                </Text>{' '}
+                can be exposed without overexposing.
+                {lockedWideStops.length > 0
+                  ? ` Wide bokeh stops (${lockedWideStops.map(formatAperture).join(', ')}) exceed ${formatShutter(fastestCameraShutter)} — equip a Polarizer or ND filter below to unlock wide-open daylight bokeh:`
+                  : ''}
+              </Text>
+              {lockedWideStops.length > 0 && onEquipFilter && (
+                <View style={styles.ndAdvisorBtnRow}>
+                  <Pressable
+                    nativeID="btn-advisor-cpl"
+                    onPress={() => onEquipFilter('cpl')}
+                    style={styles.ndAdvisorBtn}
+                  >
+                    <Text style={styles.ndAdvisorBtnText}>
+                      + EQUIP CPL POLARIZER (+2 EV · UNLOCKS 2 STOPS WIDER)
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    nativeID="btn-advisor-nd8"
+                    onPress={() => onEquipFilter('nd8')}
+                    style={[styles.ndAdvisorBtn, { backgroundColor: C.mustard }]}
+                  >
+                    <Text style={[styles.ndAdvisorBtnText, { color: C.ink }]}>
+                      + EQUIP ND8 FILTER (+3 EV · UNLOCKS 3 STOPS WIDER)
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -599,6 +643,42 @@ export default function DepthOfFieldIndicator({
                 </Text>
               );
             })}
+          </View>
+        </View>
+
+        {/* 35mm Street Zone-Focus / Pre-Focus Quick Scale */}
+        <View style={styles.zoneSnapBar} nativeID="street-zone-focus-bar">
+          <View style={styles.zoneSnapInfo}>
+            <Text style={styles.zoneSnapTitle}>
+              35MM STREET ZONE-FOCUSING (PRE-FOCUS & SHOOT WITHOUT FOCUSING):
+            </Text>
+            <Text style={styles.zoneSnapSub}>
+              Set your {lens.focalLength}mm barrel to{' '}
+              <Text style={{ color: C.mustard }}>{snapFocusM.toFixed(1)}m @ {formatAperture(resolveValidPair(8)?.aperture ?? 8)}</Text>
+              {' '}for an instant sharp street zone from{' '}
+              <Text style={{ color: C.teal }}>{formatDist(snapDof.nearLimitM)}</Text> to{' '}
+              <Text style={{ color: C.orange }}>{formatDist(snapDof.farLimitM)}</Text>.
+            </Text>
+          </View>
+          <View style={styles.zoneSnapBtns}>
+            <Pressable
+              nativeID="btn-zone-snap-street"
+              onPress={() => onSelectDistance(snapFocusM, resolveValidPair(8)?.aperture ?? 8)}
+              style={styles.zoneSnapBtn}
+            >
+              <Text style={styles.zoneSnapBtnText}>
+                SET STREET SNAP ({snapFocusM.toFixed(1)}m · {formatAperture(resolveValidPair(8)?.aperture ?? 8)})
+              </Text>
+            </Pressable>
+            <Pressable
+              nativeID="btn-zone-snap-hyper"
+              onPress={() => onSelectHyperfocal(hyperfocalTargetAp)}
+              style={[styles.zoneSnapBtn, { backgroundColor: C.teal }]}
+            >
+              <Text style={[styles.zoneSnapBtnText, { color: C.paper }]}>
+                SET HYPERFOCAL ({formatDist(baseDof.hyperfocalM)} · {formatAperture(hyperfocalTargetAp)})
+              </Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -1330,6 +1410,77 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: C.mustard,
     marginHorizontal: 4,
+  },
+  ndAdvisorBox: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#1E1914',
+    borderWidth: 1,
+    borderColor: C.mustard,
+    gap: 6,
+  },
+  ndAdvisorBtnRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  ndAdvisorBtn: {
+    backgroundColor: C.teal,
+    borderWidth: 1,
+    borderColor: C.paper,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  ndAdvisorBtnText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.paper,
+    letterSpacing: 0.8,
+  },
+  zoneSnapBar: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: '#3A3127',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  zoneSnapInfo: {
+    flex: 1,
+    minWidth: 200,
+  },
+  zoneSnapTitle: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.mustard,
+    letterSpacing: 1,
+  },
+  zoneSnapSub: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.paperDark,
+    marginTop: 2,
+  },
+  zoneSnapBtns: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  zoneSnapBtn: {
+    backgroundColor: C.mustard,
+    borderWidth: 1,
+    borderColor: C.paper,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  zoneSnapBtnText: {
+    fontFamily: display,
+    fontSize: 12,
+    color: C.ink,
+    letterSpacing: 0.8,
   },
 });
 
