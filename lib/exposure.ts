@@ -123,24 +123,6 @@ export const lensFilters: LensFilter[] = [
     effect: 'Protects front element & cuts atmospheric UV haze · No exposure compensation needed',
   },
   {
-    id: 'yellow',
-    name: 'Yellow Filter (#8 / K2)',
-    shortName: 'YELLOW #8',
-    factor: '2× (+1 EV)',
-    stops: 1,
-    color: '#E3A82B',
-    effect: '+1 stop compensation · Natural B&W sky/cloud separation & opens 1 stop wider for bokeh',
-  },
-  {
-    id: '85b',
-    name: '85B Daylight Warming Filter',
-    shortName: '85B WARM',
-    factor: '1.6× (+1 EV)',
-    stops: 1,
-    color: '#E09543',
-    effect: '+1 stop compensation · Converts tungsten 35mm film (CineStill 800T) to 5500K daylight',
-  },
-  {
     id: 'cpl',
     name: 'Circular / Linear Polarizer (CPL / PL)',
     shortName: 'POLARIZER (CPL)',
@@ -148,6 +130,15 @@ export const lensFilters: LensFilter[] = [
     stops: 2,
     color: '#4F9E9B',
     effect: '+2 stops compensation · Cuts glare on water/glass, deepens blue skies (90° to sun) & unlocks wider daylight apertures on Color & B&W',
+  },
+  {
+    id: 'yellow',
+    name: 'Yellow Filter (#8 / K2)',
+    shortName: 'YELLOW #8',
+    factor: '2× (+1 EV)',
+    stops: 1,
+    color: '#E3A82B',
+    effect: '+1 stop compensation · Natural B&W sky/cloud separation & opens 1 stop wider for bokeh',
   },
   {
     id: 'orange',
@@ -159,6 +150,15 @@ export const lensFilters: LensFilter[] = [
     effect: '+2 stops compensation · Classic 35mm B&W street/landscape filter — dramatic skies & smooth skin tones',
   },
   {
+    id: 'red',
+    name: 'Red Filter (#25 / 25A)',
+    shortName: 'RED #25',
+    factor: '8× (+3 EV)',
+    stops: 3,
+    color: '#D9622B',
+    effect: '+3 stops compensation · Dramatic B&W black skies, bold contrast & opens 3 stops wider for shallow bokeh',
+  },
+  {
     id: 'green',
     name: 'Green Filter (#11 / X1)',
     shortName: 'GREEN #11',
@@ -166,6 +166,15 @@ export const lensFilters: LensFilter[] = [
     stops: 2,
     color: '#6C9E5E',
     effect: '+2 stops compensation · Lightens B&W woodland foliage & renders natural outdoor portrait skin tones',
+  },
+  {
+    id: '85b',
+    name: '85B Daylight Warming Filter',
+    shortName: '85B WARM',
+    factor: '1.6× (+1 EV)',
+    stops: 1,
+    color: '#E09543',
+    effect: '+1 stop compensation · Converts tungsten 35mm film (CineStill 800T) to 5500K daylight',
   },
   {
     id: 'nd4',
@@ -177,15 +186,6 @@ export const lensFilters: LensFilter[] = [
     effect: '+2 stops compensation · Darkens bright sun with zero color shift so 1/1000s 35mm bodies can shoot f/2–f/2.8',
   },
   {
-    id: 'red',
-    name: 'Red Filter (#25 / 25A)',
-    shortName: 'RED #25',
-    factor: '8× (+3 EV)',
-    stops: 3,
-    color: '#D9622B',
-    effect: '+3 stops compensation · Dramatic B&W black skies, bold contrast & opens 3 stops wider for shallow bokeh',
-  },
-  {
     id: 'nd8',
     name: 'Neutral Density ND8 (0.9 · 3-Stop)',
     shortName: 'ND8 (3-STOP)',
@@ -195,6 +195,133 @@ export const lensFilters: LensFilter[] = [
     effect: '+3 stops compensation · Unlocks wide-open f/1.4–f/2 portrait bokeh in bright sun on 1/500s–1/1000s 35mm cameras',
   },
 ];
+
+export interface FilterStackSummary {
+  /** Active filters in the stack (excluding 'none'), with index 0 as the primary filter. */
+  filters: LensFilter[];
+  hasFilters: boolean;
+  isStacked: boolean;
+  primaryFilter: LensFilter;
+  stackedFilters: LensFilter[];
+  /** Combined exposure compensation in stops (sum of all stacked filters). */
+  totalStops: number;
+  /** Combined filter factor multiplier (2^totalStops). */
+  factorMultiplier: number;
+  /** Formatted factor + EV string, e.g. '32× (+5 EV)' or '4× (+2 EV)'. */
+  factorLabel: string;
+  /** Short combined name, e.g. 'POLARIZER (CPL) + RED #25'. */
+  shortName: string;
+  /** Full combined name, e.g. 'Circular / Linear Polarizer (CPL / PL) + Red Filter (#25 / 25A)'. */
+  name: string;
+  /** Primary display badge color. */
+  color: string;
+  /** Combined optical & photographic advice for this single or stacked filter setup. */
+  effect: string;
+}
+
+/**
+ * Computes the cumulative exposure compensation (+EV stops), multiplied filter factor,
+ * and 35mm optical synergy notes when one or more screw-in filters are stacked on the lens.
+ */
+export function summarizeFilterStack(
+  filterIds: FilterId[],
+  focalLengthMm?: number,
+): FilterStackSummary {
+  const uniqueValidIds = Array.from(new Set(filterIds)).filter((id) => id !== 'none');
+  const activeFilters = uniqueValidIds
+    .map((id) => lensFilters.find((f) => f.id === id))
+    .filter((f): f is LensFilter => f !== undefined);
+
+  const noneFilter = lensFilters[0];
+
+  if (activeFilters.length === 0) {
+    return {
+      filters: [],
+      hasFilters: false,
+      isStacked: false,
+      primaryFilter: noneFilter,
+      stackedFilters: [],
+      totalStops: 0,
+      factorMultiplier: 1,
+      factorLabel: noneFilter.factor,
+      shortName: noneFilter.shortName,
+      name: noneFilter.name,
+      color: noneFilter.color,
+      effect: noneFilter.effect,
+    };
+  }
+
+  const primaryFilter = activeFilters[0];
+  const stackedFilters = activeFilters.slice(1);
+  const totalStops = activeFilters.reduce((sum, f) => sum + f.stops, 0);
+  const factorMultiplier = Math.round(2 ** totalStops);
+
+  if (activeFilters.length === 1) {
+    return {
+      filters: activeFilters,
+      hasFilters: true,
+      isStacked: false,
+      primaryFilter,
+      stackedFilters: [],
+      totalStops: primaryFilter.stops,
+      factorMultiplier: Math.max(1, Math.round(2 ** primaryFilter.stops)),
+      factorLabel: primaryFilter.factor,
+      shortName: primaryFilter.shortName,
+      name: primaryFilter.name,
+      color: primaryFilter.color,
+      effect: primaryFilter.effect,
+    };
+  }
+
+  const factorLabel = `${factorMultiplier}× (+${totalStops} EV)`;
+  const shortName = activeFilters.map((f) => f.shortName).join(' + ');
+  const name = activeFilters.map((f) => f.name).join(' + ');
+  const ids = new Set<FilterId>(uniqueValidIds);
+
+  const bwContrastCount = ['yellow', 'orange', 'green', 'red'].filter((id) =>
+    ids.has(id as FilterId),
+  ).length;
+  const hasCpl = ids.has('cpl');
+  const hasNd = ids.has('nd4') || ids.has('nd8');
+  const has85b = ids.has('85b');
+
+  let synergy = `+${totalStops} stops cumulative filter compensation (${factorMultiplier}× light reduction).`;
+  if (hasCpl && ids.has('red')) {
+    synergy = `+${totalStops} stops (${factorMultiplier}×) Ansel Adams B&W Drama Stack: Polarizer cuts atmospheric glare while Red #25 turns blue skies jet-black with bold cloud contrast.`;
+  } else if (hasCpl && (ids.has('orange') || ids.has('yellow'))) {
+    synergy = `+${totalStops} stops (${factorMultiplier}×) B&W Glare + Sky Stack: Polarizer eliminates water/glass reflections while the contrast filter deepens skies and separates clouds.`;
+  } else if (hasCpl && ids.has('green')) {
+    synergy = `+${totalStops} stops (${factorMultiplier}×) Woodland B&W Stack: Polarizer removes waxy leaf reflections while Green #11 brightens foliage tones.`;
+  } else if (hasCpl && hasNd) {
+    synergy = `+${totalStops} stops (${factorMultiplier}×) Daylight Bokeh + Glare Stack: Combines polarization with neutral density to unlock wide-open f/1.4–f/2 shooting in bright sun.`;
+  } else if (has85b && (hasNd || hasCpl)) {
+    synergy = `+${totalStops} stops (${factorMultiplier}×) Tungsten-in-Daylight Stack: 85B warms tungsten film (CineStill 800T) to 5500K while added filtration prevents overexposing ISO 800 in bright sun.`;
+  } else if (bwContrastCount >= 1 && hasNd) {
+    synergy = `+${totalStops} stops (${factorMultiplier}×) B&W Contrast + Wide-Open ND Stack: Preserves monochrome sky/foliage tonal filtering while cutting extra light for f/1.4–f/2 shallow bokeh.`;
+  } else if (bwContrastCount >= 2) {
+    synergy = `+${totalStops} stops (${factorMultiplier}×) Stacked B&W Contrast Rings: Stronger monochrome filters already block lighter wavelengths, and both glass rings add cumulative light loss.`;
+  }
+
+  const vignetteNote =
+    focalLengthMm !== undefined && focalLengthMm <= 28
+      ? ` · Wide-Angle Note (${focalLengthMm}mm): Stacking ${activeFilters.length} screw-in rings on a ≤28mm lens can cause mechanical corner vignetting — check frame corners.`
+      : '';
+
+  return {
+    filters: activeFilters,
+    hasFilters: true,
+    isStacked: true,
+    primaryFilter,
+    stackedFilters,
+    totalStops,
+    factorMultiplier,
+    factorLabel,
+    shortName,
+    name,
+    color: primaryFilter.color,
+    effect: `${synergy}${vignetteNote}`,
+  };
+}
 
 export interface HandheldSafety {
   status: 'safe' | 'borderline' | 'tripod';

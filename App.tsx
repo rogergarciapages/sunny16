@@ -28,6 +28,7 @@ import {
   Condition,
   lensFilters,
   FilterId,
+  summarizeFilterStack,
   grittyStyles,
   GrittyStyleId,
   lightDirections,
@@ -102,7 +103,6 @@ export default function App() {
   const [filmDrawerOpen, setFilmDrawerOpen] = useState<boolean>(false);
   const [quickTweaksOpen, setQuickTweaksOpen] = useState<boolean>(false);
   const [reciprocityOpen, setReciprocityOpen] = useState<boolean>(false);
-  const [showAllFilmGuideStocks, setShowAllFilmGuideStocks] = useState<boolean>(false);
   const [cameraDecade, setCameraDecade] = useState<'all' | '60s' | '70s' | '80s' | '90s'>('all');
   const [cameraSearch, setCameraSearch] = useState<string>('');
   const [activeDetailTab, setActiveDetailTab] = useState<'none' | 'dof' | 'filters' | 'grit' | 'film' | 'all'>('dof');
@@ -139,8 +139,23 @@ export default function App() {
   const [lensId, setLensId] = useState<string | undefined>();
   const lens = cameraLenses.find((l) => l.id === lensId) ?? cameraLenses[0];
   const [conditionId, setConditionId] = useState<Condition['id']>('sunny');
-  const [filterId, setFilterId] = useState<FilterId>('none');
-  const activeFilter = lensFilters.find((f) => f.id === filterId) ?? lensFilters[0];
+  const [step1FilterId, setStep1FilterId] = useState<FilterId>('none');
+  const [step2FilterId, setStep2FilterId] = useState<FilterId>('none');
+  const [showStep3, setShowStep3] = useState<boolean>(false);
+  const [step3FilterId, setStep3FilterId] = useState<FilterId>('none');
+
+  const selectedFilterIds = useMemo(
+    () =>
+      [step1FilterId, step2FilterId, showStep3 ? step3FilterId : 'none'].filter(
+        (id): id is FilterId => id !== 'none',
+      ),
+    [step1FilterId, step2FilterId, showStep3, step3FilterId],
+  );
+
+  const activeFilter = useMemo(
+    () => summarizeFilterStack(selectedFilterIds, lens?.focalLength),
+    [selectedFilterIds, lens?.focalLength],
+  );
   const [lightDirId, setLightDirId] = useState<LightDirectionId>('front');
   const activeLightDir = lightDirections.find((d) => d.id === lightDirId) ?? lightDirections[0];
   const [grittyId, setGrittyId] = useState<GrittyStyleId>('off');
@@ -151,7 +166,65 @@ export default function App() {
   const [prioritizeHandheld, setPrioritizeHandheld] = useState<boolean>(false);
   const [sceneCategory, setSceneCategory] = useState<'all' | 'daylight' | 'lowlight'>('all');
 
-  const totalPositiveStops = activeFilter.stops + activeLightDir.stops;
+  const clearAllFilters = () => {
+    setStep1FilterId('none');
+    setStep2FilterId('none');
+    setShowStep3(false);
+    setStep3FilterId('none');
+  };
+
+  const selectStep1Filter = (id: FilterId) => {
+    if (id === 'none') {
+      clearAllFilters();
+      return;
+    }
+    setStep1FilterId(id);
+    if (step2FilterId === id) {
+      setStep2FilterId('none');
+      setShowStep3(false);
+      setStep3FilterId('none');
+    } else if (step3FilterId === id) {
+      setStep3FilterId('none');
+    }
+  };
+
+  const selectStep2Filter = (id: FilterId) => {
+    if (id === 'none' || step2FilterId === id) {
+      setStep2FilterId('none');
+      setShowStep3(false);
+      setStep3FilterId('none');
+      return;
+    }
+    setStep2FilterId(id);
+    if (step3FilterId === id) {
+      setStep3FilterId('none');
+    }
+  };
+
+  const selectStep3Filter = (id: FilterId) => {
+    if (id === 'none' || step3FilterId === id) {
+      setStep3FilterId('none');
+      return;
+    }
+    setStep3FilterId(id);
+  };
+
+  const equipOrStackFilter = (id: FilterId) => {
+    if (id === 'none') {
+      clearAllFilters();
+      return;
+    }
+    if (step1FilterId === 'none') {
+      setStep1FilterId(id);
+    } else if (step1FilterId !== id && step2FilterId === 'none') {
+      setStep2FilterId(id);
+    } else if (step1FilterId !== id && step2FilterId !== id) {
+      setShowStep3(true);
+      setStep3FilterId(id);
+    }
+  };
+
+  const totalPositiveStops = activeFilter.totalStops + activeLightDir.stops;
 
   const validPreferredAperture =
     preferredAperture !== undefined && lens?.apertures.includes(preferredAperture)
@@ -195,7 +268,7 @@ export default function App() {
   };
 
   const hasActiveTweaks =
-    filterId !== 'none' ||
+    activeFilter.hasFilters ||
     lightDirId !== 'front' ||
     grittyId !== 'off' ||
     validPreferredAperture !== undefined ||
@@ -215,7 +288,7 @@ export default function App() {
 
   const resetTweaksToSunny16 = () => {
     setConditionId('sunny');
-    setFilterId('none');
+    clearAllFilters();
     setLightDirId('front');
     setGrittyId('off');
     setPreferredAperture(undefined);
@@ -622,7 +695,7 @@ export default function App() {
                   {activeFilmStock ? `${activeFilmStock.name} (ISO ${iso})` : `ISO ${iso}`} ·{' '}
                   {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
                   {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
-                  {filterId !== 'none' ? ` · ${activeFilter.shortName}` : ''}
+                  {activeFilter.hasFilters ? ` · ${activeFilter.shortName} (${activeFilter.factorLabel})` : ''}
                   {grittyId !== 'off' ? ` · ${activeGritty.shortName}` : ''}
                   {prioritizeHandheld ? ' · 1/f Handheld Guard' : ''}
                   {lightConditionedAperture !== undefined
@@ -713,10 +786,16 @@ export default function App() {
                       </Text>
                     </View>
                   )}
-                  {activeFilter.id !== 'none' && (
-                    <View style={[styles.isoBox, { backgroundColor: activeFilter.color }]}>
-                      <Text style={styles.isoBoxText}>{activeFilter.shortName} ({activeFilter.factor})</Text>
-                    </View>
+                  {activeFilter.hasFilters && (
+                    <Pressable
+                      nativeID="reset-filter-stack"
+                      onPress={clearAllFilters}
+                      style={[styles.isoBox, { backgroundColor: activeFilter.color }]}
+                    >
+                      <Text style={styles.isoBoxText}>
+                        {activeFilter.shortName} ({activeFilter.factorLabel}) ✕
+                      </Text>
+                    </Pressable>
                   )}
                   <View style={styles.isoBox}>
                     <Text style={styles.isoBoxText}>
@@ -732,7 +811,7 @@ export default function App() {
                   : ''}
                 {activeFilmStock ? ` · ${activeFilmStock.name}` : ''}
                 {lightDirId !== 'front' ? ` · ${activeLightDir.name}` : ''}
-                {activeFilter.id !== 'none' ? ` · ${activeFilter.name}` : ''}
+                {activeFilter.hasFilters ? ` · ${activeFilter.name}` : ''}
                 {activeGritty.id !== 'off' ? ` · ${activeGritty.name}` : ''}
                 {lightConditionedAperture !== undefined ? ` · Priority: ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})` : ''}
               </Text>
@@ -901,8 +980,8 @@ export default function App() {
                               heroShake.status === 'safe'
                                 ? { backgroundColor: C.teal }
                                 : heroShake.status === 'borderline'
-                                ? { backgroundColor: C.mustard }
-                                : { backgroundColor: C.orange },
+                                  ? { backgroundColor: C.mustard }
+                                  : { backgroundColor: C.orange },
                             ]}
                           >
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -919,8 +998,8 @@ export default function App() {
                                 {heroShake.status === 'safe'
                                   ? 'HANDHELD SAFE'
                                   : heroShake.status === 'borderline'
-                                  ? 'BRACE HANDS'
-                                  : 'USE TRIPOD'}
+                                    ? 'BRACE HANDS'
+                                    : 'USE TRIPOD'}
                               </Text>
                             </View>
                           </View>
@@ -995,16 +1074,16 @@ export default function App() {
                                     shake.status === 'safe'
                                       ? { backgroundColor: C.teal }
                                       : shake.status === 'borderline'
-                                      ? { backgroundColor: C.brown }
-                                      : { backgroundColor: C.orange },
+                                        ? { backgroundColor: C.brown }
+                                        : { backgroundColor: C.orange },
                                   ]}
                                 >
                                   <Text style={styles.cellShakeText}>
                                     {shake.status === 'safe'
                                       ? '✓'
                                       : shake.status === 'borderline'
-                                      ? '⚠'
-                                      : '▲'}
+                                        ? '⚠'
+                                        : '▲'}
                                   </Text>
                                 </View>
                               )}
@@ -1071,14 +1150,14 @@ export default function App() {
 
     const reciprocity = bestDisplay
       ? calculateReciprocity(
-          bestDisplay.shutter,
-          r.ideal.shutter,
-          bestDisplay.aperture,
-          r.ideal.aperture,
-          activeFilmStock?.name,
-          activeFilmStock?.reciprocityExponent,
-          activeFilmStock?.reciprocityNote,
-        )
+        bestDisplay.shutter,
+        r.ideal.shutter,
+        bestDisplay.aperture,
+        r.ideal.aperture,
+        activeFilmStock?.name,
+        activeFilmStock?.reciprocityExponent,
+        activeFilmStock?.reciprocityNote,
+      )
       : null;
 
     const pickClosestValidAperture = (targetAp: number): number => {
@@ -1108,7 +1187,7 @@ export default function App() {
         <Text style={styles.resultKicker}>
           RECOMMENDED SETTING · {cond.title.toUpperCase()}
           {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
-          {activeFilter.id !== 'none' ? ` · ${activeFilter.shortName} (${activeFilter.factor})` : ''}
+          {activeFilter.hasFilters ? ` · ${activeFilter.shortName} (${activeFilter.factorLabel})` : ''}
           {activeGritty.id !== 'off' ? ` · ${activeGritty.shortName}` : ''}
           {validPreferredAperture !== undefined && bestDisplay
             ? ` · DOF PRIORITY (${isHyperfocalMode ? 'HYPERFOCAL' : `${focusDistanceM}M`} · ${formatAperture(bestDisplay.aperture)})`
@@ -1139,8 +1218,8 @@ export default function App() {
                   handheldSafety.status === 'safe'
                     ? { borderColor: C.teal }
                     : handheldSafety.status === 'borderline'
-                    ? { borderColor: C.mustard }
-                    : { borderColor: C.orange },
+                      ? { borderColor: C.mustard }
+                      : { borderColor: C.orange },
                 ]}
                 nativeID="handheld-safety-banner"
               >
@@ -1151,8 +1230,8 @@ export default function App() {
                       handheldSafety.status === 'safe'
                         ? { backgroundColor: C.teal }
                         : handheldSafety.status === 'borderline'
-                        ? { backgroundColor: C.mustard }
-                        : { backgroundColor: C.orange },
+                          ? { backgroundColor: C.mustard }
+                          : { backgroundColor: C.orange },
                     ]}
                   >
                     <Text
@@ -1186,27 +1265,28 @@ export default function App() {
             <Text style={styles.resultNote}>
               Pure Sunny 16
               {lightDirId !== 'front' ? ` (+${activeLightDir.stops} EV ${activeLightDir.id}lit)` : ''}
-              {activeFilter.stops > 0 ? ` (+${activeFilter.stops} EV filter)` : ''}
+              {activeFilter.totalStops > 0
+                ? ` (+${activeFilter.totalStops} EV ${activeFilter.isStacked ? 'stacked filters' : 'filter'})`
+                : ''}
               {activeGritty.evShiftStops !== 0
                 ? ` (${activeGritty.evShiftStops} EV gritty shift · EI ${Math.round(iso * 2 ** -activeGritty.evShiftStops)})`
                 : ''}
               : {formatAperture(r.ideal.aperture)} @ {formatShutter(r.ideal.shutter)} · On your gear:{' '}
               {formatError(bestDisplay.errorStops)}
               {activeFilmStock
-                ? ` · ${activeFilmStock.shortName} Latitude (+${activeFilmStock.latitudeOverStops}/−${activeFilmStock.latitudeUnderStops} EV): ${
-                    bestDisplay.errorStops <= activeFilmStock.latitudeOverStops &&
-                    bestDisplay.errorStops >= -activeFilmStock.latitudeUnderStops
-                      ? 'WITHIN SAFE FILM LATITUDE'
-                      : 'OUTSIDE FILM LATITUDE — BRACKET / ADJUST'
-                  }`
+                ? ` · ${activeFilmStock.shortName} Latitude (+${activeFilmStock.latitudeOverStops}/−${activeFilmStock.latitudeUnderStops} EV): ${bestDisplay.errorStops <= activeFilmStock.latitudeOverStops &&
+                  bestDisplay.errorStops >= -activeFilmStock.latitudeUnderStops
+                  ? 'WITHIN SAFE FILM LATITUDE'
+                  : 'OUTSIDE FILM LATITUDE — BRACKET / ADJUST'
+                }`
                 : ''}
             </Text>
-            {(activeFilter.id !== 'none' || lightDirId !== 'front' || activeGritty.id !== 'off') && (
+            {(activeFilter.hasFilters || lightDirId !== 'front' || activeGritty.id !== 'off') && (
               <View style={styles.cumulativeBanner}>
                 <Text style={styles.cumulativeText}>
                   <Text style={styles.grittyGearHighlight}>CUMULATIVE MATH: </Text>
                   {lightDirId !== 'front' ? `Light Dir (${activeLightDir.shortName}: +${activeLightDir.stops} EV) + ` : ''}
-                  Filter ({activeFilter.shortName}: +{activeFilter.stops} EV) + Gritty ({activeGritty.shortName}:{' '}
+                  {activeFilter.isStacked ? 'Stacked Filters' : 'Filter'} ({activeFilter.shortName}: +{activeFilter.totalStops} EV) + Gritty ({activeGritty.shortName}:{' '}
                   {activeGritty.evShiftStops >= 0 ? `+${activeGritty.evShiftStops}` : activeGritty.evShiftStops} EV) ={' '}
                   <Text style={{ color: C.mustard, fontFamily: display, fontSize: 14 }}>
                     NET {r.netEvStops >= 0 ? `+${r.netEvStops}` : r.netEvStops} EV
@@ -1221,7 +1301,8 @@ export default function App() {
             {r.alternatives.length > 0 && (
               <>
                 <Text style={styles.altTitle}>
-                  EQUIVALENT EXPOSURES {activeFilter.id !== 'none' ? `· WITH ${activeFilter.shortName}` : ''}
+                  EQUIVALENT EXPOSURES{' '}
+                  {activeFilter.hasFilters ? `· WITH ${activeFilter.shortName} (${activeFilter.factorLabel})` : ''}
                 </Text>
                 <Text style={styles.altHint}>
                   Same exposure — tap any chip below (or in the DoF visualizer) to lock that aperture across the table:
@@ -1250,15 +1331,15 @@ export default function App() {
                             chipShake.status === 'safe'
                               ? { color: C.teal }
                               : chipShake.status === 'borderline'
-                              ? { color: C.mustard }
-                              : { color: C.orange },
+                                ? { color: C.mustard }
+                                : { color: C.orange },
                           ]}
                         >
                           {chipShake.status === 'safe'
                             ? '✓ HANDHELD'
                             : chipShake.status === 'borderline'
-                            ? '⚠ BRACE'
-                            : '▲ TRIPOD'}
+                              ? '⚠ BRACE'
+                              : '▲ TRIPOD'}
                         </Text>
                       </Pressable>
                     );
@@ -1327,14 +1408,14 @@ export default function App() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.quickTweakLabel}>
-                    OPTIONAL FINE-TUNING: SCREW-IN LENS FILTERS (CPL / B&W / ND) & PUSH / PULL
+                    OPTIONAL FINE-TUNING: SCREW-IN LENS FILTERS (STACKABLE CPL / B&W / ND) & PUSH / PULL
                   </Text>
                   <Text style={styles.darkFoldableSub}>
-                    Active Filter: {activeFilter.name} ({activeFilter.factor}) · Push/Style: {activeGritty.shortName} ({activeGritty.badge})
+                    Active Filter{activeFilter.isStacked ? ' Stack' : ''}: {activeFilter.shortName} ({activeFilter.factorLabel}) · Push/Style: {activeGritty.shortName} ({activeGritty.badge})
                   </Text>
                 </View>
                 <Text style={styles.darkFoldableToggleText}>
-                  {quickTweaksOpen ? '▲ HIDE MODIFIERS' : '▼ CHANGE FILTER / PUSH'}
+                  {quickTweaksOpen ? '▲ HIDE MODIFIERS' : '▼ CHANGE / STACK FILTERS'}
                 </Text>
               </Pressable>
 
@@ -1342,27 +1423,204 @@ export default function App() {
                 <View style={{ marginTop: 8, gap: 10 }}>
                   <View style={styles.quickTweakCol}>
                     <Text style={styles.quickTweakLabel}>
-                      SCREW-IN LENS FILTER (AUTO-COMPENSATES EXPOSURE FOR FILTER LIGHT LOSS):
+                      STEP 1 · SELECT PRIMARY LENS FILTER:
                     </Text>
                     <View style={styles.filterPillRow}>
                       {lensFilters.map((f) => {
-                        const isSelected = f.id === activeFilter.id;
+                        const isSelected = f.id === step1FilterId;
                         return (
                           <Pressable
-                            key={`quick-f-${f.id}`}
-                            onPress={() => setFilterId(f.id)}
+                            key={`quick-s1-${f.id}`}
+                            nativeID={`quick-s1-${f.id}`}
+                            onPress={() => selectStep1Filter(f.id)}
                             style={[
                               styles.quickMiniPill,
-                              isSelected && { backgroundColor: f.color, borderColor: f.color },
+                              isSelected && {
+                                backgroundColor: C.paper,
+                                borderColor: f.color,
+                                borderWidth: 2,
+                              },
                             ]}
                           >
-                            <Text style={[styles.quickMiniPillText, isSelected && { color: C.ink }]}>
-                              {f.shortName} ({f.factor})
-                            </Text>
+                            <View style={styles.filterBtnTitleRow}>
+                              <View
+                                style={[
+                                  styles.filterBtnDot,
+                                  { backgroundColor: f.color },
+                                  isSelected && { borderColor: C.ink, borderWidth: 1.5 },
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  styles.quickMiniPillText,
+                                  isSelected && { color: C.ink },
+                                ]}
+                              >
+                                {f.shortName} ({f.factor})
+                              </Text>
+                            </View>
                           </Pressable>
                         );
                       })}
                     </View>
+
+                    {/* STEP 2: Only appears when a filter (not NONE) is selected in Step 1 */}
+                    {step1FilterId !== 'none' && (
+                      <View style={styles.filterStackSubBox} nativeID="quick-filter-step2-box">
+                        <View style={styles.filterStackHeaderRow}>
+                          <Text style={styles.filterStackTitle}>
+                            ↳ STEP 2 · STACK A 2ND FILTER WITH {activeFilter.primaryFilter.shortName} ({activeFilter.primaryFilter.factor}):
+                          </Text>
+                          {step2FilterId !== 'none' && (
+                            <Pressable
+                              nativeID="quick-clear-step2"
+                              onPress={() => selectStep2Filter('none')}
+                              style={styles.clearStackBtn}
+                            >
+                              <Text style={styles.clearStackBtnText}>✕ CLEAR STEP 2</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                        <View style={styles.filterPillRow}>
+                          {lensFilters
+                            .filter((f) => f.id !== 'none' && f.id !== step1FilterId)
+                            .map((f) => {
+                              const isSelected = f.id === step2FilterId;
+                              return (
+                                <Pressable
+                                  key={`quick-s2-${f.id}`}
+                                  nativeID={`quick-s2-${f.id}`}
+                                  onPress={() => selectStep2Filter(f.id)}
+                                  style={[
+                                    styles.quickMiniPill,
+                                    isSelected && {
+                                      backgroundColor: C.paper,
+                                      borderColor: f.color,
+                                      borderWidth: 2,
+                                    },
+                                  ]}
+                                >
+                                  <View style={styles.filterBtnTitleRow}>
+                                    <View
+                                      style={[
+                                        styles.filterBtnDot,
+                                        { backgroundColor: f.color },
+                                        isSelected && { borderColor: C.ink, borderWidth: 1.5 },
+                                      ]}
+                                    />
+                                    <Text
+                                      style={[
+                                        styles.quickMiniPillText,
+                                        isSelected && { color: C.ink },
+                                      ]}
+                                    >
+                                      {isSelected ? '✓ ' : '+ '}
+                                      {f.shortName} ({f.factor})
+                                    </Text>
+                                  </View>
+                                </Pressable>
+                              );
+                            })}
+                        </View>
+
+                        {/* Button below Step 2: "STACK MORE?" */}
+                        <View style={{ marginTop: 4, alignItems: 'flex-start' }}>
+                          <Pressable
+                            nativeID="quick-btn-stack-more"
+                            onPress={() => {
+                              if (showStep3) {
+                                setShowStep3(false);
+                                setStep3FilterId('none');
+                              } else {
+                                setShowStep3(true);
+                              }
+                            }}
+                            style={[
+                              styles.clearStackBtn,
+                              showStep3 && { backgroundColor: C.mustard },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.clearStackBtnText,
+                                showStep3 && { color: C.ink },
+                              ]}
+                            >
+                              {showStep3 ? '▲ HIDE STEP 3' : '+ STACK MORE?'}
+                            </Text>
+                          </Pressable>
+                        </View>
+
+                        {/* STEP 3: Only appears when "STACK MORE?" is clicked */}
+                        {showStep3 && (
+                          <View
+                            style={[styles.cardInlineStackBox, { marginTop: 6, paddingTop: 8 }]}
+                            nativeID="quick-filter-step3-box"
+                          >
+                            <View style={styles.filterStackHeaderRow}>
+                              <Text style={styles.filterStackTitle}>
+                                ↳ STEP 3 · STACK A 3RD FILTER:
+                              </Text>
+                              {step3FilterId !== 'none' && (
+                                <Pressable
+                                  nativeID="quick-clear-step3"
+                                  onPress={() => selectStep3Filter('none')}
+                                  style={styles.clearStackBtn}
+                                >
+                                  <Text style={styles.clearStackBtnText}>✕ CLEAR STEP 3</Text>
+                                </Pressable>
+                              )}
+                            </View>
+                            <View style={styles.filterPillRow}>
+                              {lensFilters
+                                .filter(
+                                  (f) =>
+                                    f.id !== 'none' &&
+                                    f.id !== step1FilterId &&
+                                    f.id !== step2FilterId,
+                                )
+                                .map((f) => {
+                                  const isSelected = f.id === step3FilterId;
+                                  return (
+                                    <Pressable
+                                      key={`quick-s3-${f.id}`}
+                                      nativeID={`quick-s3-${f.id}`}
+                                      onPress={() => selectStep3Filter(f.id)}
+                                      style={[
+                                        styles.quickMiniPill,
+                                        isSelected && {
+                                          backgroundColor: C.paper,
+                                          borderColor: f.color,
+                                          borderWidth: 2,
+                                        },
+                                      ]}
+                                    >
+                                      <View style={styles.filterBtnTitleRow}>
+                                        <View
+                                          style={[
+                                            styles.filterBtnDot,
+                                            { backgroundColor: f.color },
+                                            isSelected && { borderColor: C.ink, borderWidth: 1.5 },
+                                          ]}
+                                        />
+                                        <Text
+                                          style={[
+                                            styles.quickMiniPillText,
+                                            isSelected && { color: C.ink },
+                                          ]}
+                                        >
+                                          {isSelected ? '✓ ' : '+ '}
+                                          {f.shortName} ({f.factor})
+                                        </Text>
+                                      </View>
+                                    </Pressable>
+                                  );
+                                })}
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
                   <View style={styles.quickTweakCol}>
                     <Text style={styles.quickTweakLabel}>
@@ -1418,7 +1676,7 @@ export default function App() {
                   {
                     id: 'filters' as const,
                     label: '◐ LENS FILTER COMPARE',
-                    badge: `CPL / B&W / ND (${activeFilter.shortName})`,
+                    badge: `Stackable CPL / B&W / ND (${activeFilter.shortName})`,
                   },
                   {
                     id: 'grit' as const,
@@ -1427,8 +1685,8 @@ export default function App() {
                   },
                   {
                     id: 'film' as const,
-                    label: 'FILM LATITUDE GUIDE',
-                    badge: `Latitude & Reciprocity (${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`})`,
+                    label: 'FILM TIPS & LATITUDE',
+                    badge: `Guide for ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}`,
                     isFilmTab: true,
                   },
                   {
@@ -1478,36 +1736,53 @@ export default function App() {
                 }}
                 onSelectDistance={handleSelectDistance}
                 onSelectHyperfocal={handleSelectHyperfocal}
-                onEquipFilter={(fid) => setFilterId(fid)}
+                onEquipFilter={(fid) => equipOrStackFilter(fid)}
               />
             )}
 
-            {/* TAB 2: Filter Compensation & Equivalent Exposures Comparison */}
+            {/* TAB 2: Progressive 3-Step Lens Filter Stacker (Nothing below when NONE is selected; no extra options below Step 2 or Step 3) */}
             {(activeDetailTab === 'filters' || activeDetailTab === 'all') && (
-              <View style={styles.filterSection}>
+              <View style={styles.filterSection} nativeID="filter-compare-section">
                 <Text style={styles.altTitle}>
-                  35MM LENS FILTER KIT · POLARIZER (CPL) / B&W CONTRAST / ND / WARMING
+                  35MM SCREW-IN LENS FILTER STACKER · CPL / B&W / ND / WARMING
                 </Text>
                 <Text style={styles.altHint}>
-                  Tap any filter below to equip it across the table, or compare how Polarizers (CPL), Yellow (#8), Orange (#16), Green (#11), Red (#25), 85B, and Neutral Density (ND4/ND8) shift your exposure & unlock wider bokeh stops:
+                  Select a filter in Step 1 below to see your updated exposure & unlock Step 2 to stack additional filters:
                 </Text>
 
+                {/* STEP 1: Primary Base Filter Row */}
+                <Text style={[styles.quickTweakLabel, { marginTop: 8 }]}>
+                  STEP 1 · SELECT PRIMARY LENS FILTER:
+                </Text>
                 <View style={styles.filterPillRow}>
                   {lensFilters.map((f) => {
-                    const isSelected = f.id === activeFilter.id;
+                    const isSelected = f.id === step1FilterId;
                     return (
                       <Pressable
                         key={f.id}
                         nativeID={`filter-${f.id}`}
-                        onPress={() => setFilterId(f.id)}
+                        onPress={() => selectStep1Filter(f.id)}
                         style={[
                           styles.filterPill,
-                          isSelected && { backgroundColor: f.color, borderColor: f.color },
+                          isSelected && {
+                            backgroundColor: C.paper,
+                            borderColor: f.color,
+                            borderWidth: 2,
+                          },
                         ]}
                       >
-                        <Text style={[styles.filterPillTitle, isSelected && { color: C.ink }]}>
-                          {f.shortName}
-                        </Text>
+                        <View style={styles.filterBtnTitleRow}>
+                          <View
+                            style={[
+                              styles.filterBtnDot,
+                              { backgroundColor: f.color },
+                              isSelected && { borderColor: C.ink, borderWidth: 1.5 },
+                            ]}
+                          />
+                          <Text style={[styles.filterPillTitle, isSelected && { color: C.ink }]}>
+                            {f.shortName}
+                          </Text>
+                        </View>
                         <Text style={[styles.filterPillSub, isSelected && { color: C.brown }]}>
                           {f.factor}
                         </Text>
@@ -1516,77 +1791,230 @@ export default function App() {
                   })}
                 </View>
 
-                <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
-                  {lensFilters
-                    .filter((f) => f.id !== 'none')
-                    .map((f) => {
-                      const fr = recommend(
-                        iso,
-                        cond,
-                        camera!,
-                        lens!,
-                        f.stops + activeLightDir.stops,
-                        activeGritty.evShiftStops,
-                        undefined,
-                        prioritizeHandheld,
-                      );
-                      const allPairs = fr.best ? [fr.best, ...fr.alternatives] : [];
-                      const widest = [...allPairs].sort((a, b) => a.aperture - b.aperture)[0];
-                      const isSelected = f.id === activeFilter.id;
-                      return (
+                {/* When NONE is selected in Step 1, nothing appears below. When a filter is selected, Step 2 appears: */}
+                {step1FilterId !== 'none' && (
+                  <View style={styles.filterStackSubBox} nativeID="tab-filter-step2-box">
+                    <View style={styles.filterStackHeaderRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.filterStackTitle}>
+                          ↳ STEP 2 · STACK A 2ND FILTER WITH {activeFilter.primaryFilter.shortName} ({activeFilter.primaryFilter.factor})
+                        </Text>
+                        <Text style={styles.filterStackHint}>
+                          All other filters available to stack with {activeFilter.primaryFilter.shortName} — tap one to stack (exposure & aperture update automatically):
+                        </Text>
+                      </View>
+                      {step2FilterId !== 'none' && (
                         <Pressable
-                          key={f.id}
-                          onPress={() => setFilterId(isSelected ? 'none' : f.id)}
+                          nativeID="tab-clear-step2"
+                          onPress={() => selectStep2Filter('none')}
+                          style={styles.clearStackBtn}
+                        >
+                          <Text style={styles.clearStackBtnText}>✕ CLEAR STEP 2</Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    <View style={styles.filterPillRow}>
+                      {lensFilters
+                        .filter((f) => f.id !== 'none' && f.id !== step1FilterId)
+                        .map((f) => {
+                          const isSelected = f.id === step2FilterId;
+                          const previewStack = summarizeFilterStack(
+                            [step1FilterId, f.id],
+                            lens!.focalLength,
+                          );
+                          const previewRec = recommend(
+                            iso,
+                            cond,
+                            camera!,
+                            lens!,
+                            previewStack.totalStops + activeLightDir.stops,
+                            activeGritty.evShiftStops,
+                            validPreferredAperture,
+                            prioritizeHandheld,
+                          );
+                          return (
+                            <Pressable
+                              key={`tab-s2-${f.id}`}
+                              nativeID={`tab-s2-${f.id}`}
+                              onPress={() => selectStep2Filter(f.id)}
+                              style={[
+                                styles.stackOptionPill,
+                                isSelected && {
+                                  backgroundColor: C.paper,
+                                  borderColor: f.color,
+                                  borderWidth: 2,
+                                },
+                              ]}
+                            >
+                              <View style={styles.filterBtnTitleRow}>
+                                <View
+                                  style={[
+                                    styles.filterBtnDot,
+                                    { backgroundColor: f.color },
+                                    isSelected && { borderColor: C.ink, borderWidth: 1.5 },
+                                  ]}
+                                />
+                                <Text
+                                  style={[
+                                    styles.stackOptionTitle,
+                                    isSelected && { color: C.ink },
+                                  ]}
+                                >
+                                  {isSelected ? '✓ STACKED: ' : '+ '}
+                                  {f.shortName} ({f.factor})
+                                </Text>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.stackOptionSub,
+                                  isSelected && { color: C.brown },
+                                ]}
+                              >
+                                +{previewStack.totalStops} EV →{' '}
+                                {previewRec.best
+                                  ? `${formatAperture(previewRec.best.aperture)} · ${formatShutter(previewRec.best.shutter)}`
+                                  : 'Out of EV'}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                    </View>
+
+                    {/* Button below Step 2: "STACK MORE?" */}
+                    <View style={{ marginTop: 6, alignItems: 'flex-start' }}>
+                      <Pressable
+                        nativeID="tab-btn-stack-more"
+                        onPress={() => {
+                          if (showStep3) {
+                            setShowStep3(false);
+                            setStep3FilterId('none');
+                          } else {
+                            setShowStep3(true);
+                          }
+                        }}
+                        style={[
+                          styles.clearStackBtn,
+                          showStep3 && { backgroundColor: C.mustard },
+                        ]}
+                      >
+                        <Text
                           style={[
-                            styles.filterCard,
-                            wide && { width: '48.5%' },
-                            isSelected && { borderColor: f.color, borderWidth: 2 },
+                            styles.clearStackBtnText,
+                            showStep3 && { color: C.ink },
                           ]}
                         >
-                          <View style={styles.filterCardHead}>
-                            <View style={[styles.filterDot, { backgroundColor: f.color }]} />
-                            <Text style={styles.filterCardTitle}>{f.name}</Text>
-                            <View style={[styles.filterFactorBadge, { backgroundColor: f.color }]}>
-                              <Text style={styles.filterFactorText}>{f.factor}</Text>
-                            </View>
+                          {showStep3 ? '▲ HIDE STEP 3' : '+ STACK MORE?'}
+                        </Text>
+                      </Pressable>
+                    </View>
+
+                    {/* STEP 3: Appears when "STACK MORE?" is clicked */}
+                    {showStep3 && (
+                      <View
+                        style={styles.cardInlineStackBox}
+                        nativeID="tab-filter-step3-box"
+                      >
+                        <View style={styles.filterStackHeaderRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.filterStackTitle}>
+                              ↳ STEP 3 · STACK A 3RD FILTER
+                            </Text>
+                            <Text style={styles.filterStackHint}>
+                              Select a 3rd filter from the available filters below to add to your stack:
+                            </Text>
                           </View>
-                          <Text style={styles.filterEffect}>{f.effect}</Text>
-                          {fr.best ? (
-                            <>
-                              <View style={styles.filterSummaryRow}>
-                                <Text style={styles.filterRecLabel}>
-                                  Recommended:{' '}
-                                  <Text style={styles.filterRecVal}>
-                                    {formatAperture(fr.best.aperture)} · {formatShutter(fr.best.shutter)}
-                                  </Text>
-                                </Text>
-                                {widest && (
-                                  <Text style={styles.filterBokehLabel}>
-                                    Max Bokeh:{' '}
-                                    <Text style={styles.filterBokehVal}>
-                                      {formatAperture(widest.aperture)} · {formatShutter(widest.shutter)}
-                                    </Text>
-                                  </Text>
-                                )}
-                              </View>
-                              <View style={styles.filterEqRow}>
-                                {allPairs
-                                  .sort((a, b) => a.aperture - b.aperture)
-                                  .map((pair) => (
-                                    <View key={`${f.id}-${pair.shutter}`} style={styles.filterEqChip}>
-                                      <Text style={styles.filterEqAperture}>{formatAperture(pair.aperture)}</Text>
-                                      <Text style={styles.filterEqShutter}>{formatShutter(pair.shutter)}</Text>
-                                    </View>
-                                  ))}
-                              </View>
-                            </>
-                          ) : (
-                            <Text style={styles.altHint}>Out of range for this camera/lens.</Text>
+                          {step3FilterId !== 'none' && (
+                            <Pressable
+                              nativeID="tab-clear-step3"
+                              onPress={() => selectStep3Filter('none')}
+                              style={styles.clearStackBtn}
+                            >
+                              <Text style={styles.clearStackBtnText}>✕ CLEAR STEP 3</Text>
+                            </Pressable>
                           )}
-                        </Pressable>
-                      );
-                    })}
-                </View>
+                        </View>
+
+                        <View style={styles.filterPillRow}>
+                          {lensFilters
+                            .filter(
+                              (f) =>
+                                f.id !== 'none' &&
+                                f.id !== step1FilterId &&
+                                f.id !== step2FilterId,
+                            )
+                            .map((f) => {
+                              const isSelected = f.id === step3FilterId;
+                              const previewIds: FilterId[] = [
+                                step1FilterId,
+                                ...(step2FilterId !== 'none' ? [step2FilterId] : []),
+                                f.id,
+                              ];
+                              const previewStack = summarizeFilterStack(
+                                previewIds,
+                                lens!.focalLength,
+                              );
+                              const previewRec = recommend(
+                                iso,
+                                cond,
+                                camera!,
+                                lens!,
+                                previewStack.totalStops + activeLightDir.stops,
+                                activeGritty.evShiftStops,
+                                validPreferredAperture,
+                                prioritizeHandheld,
+                              );
+                              return (
+                                <Pressable
+                                  key={`tab-s3-${f.id}`}
+                                  nativeID={`tab-s3-${f.id}`}
+                                  onPress={() => selectStep3Filter(f.id)}
+                                  style={[
+                                    styles.stackOptionPill,
+                                    isSelected && {
+                                      backgroundColor: C.paper,
+                                      borderColor: f.color,
+                                      borderWidth: 2,
+                                    },
+                                  ]}
+                                >
+                                  <View style={styles.filterBtnTitleRow}>
+                                    <View
+                                      style={[
+                                        styles.filterBtnDot,
+                                        { backgroundColor: f.color },
+                                        isSelected && { borderColor: C.ink, borderWidth: 1.5 },
+                                      ]}
+                                    />
+                                    <Text
+                                      style={[
+                                        styles.stackOptionTitle,
+                                        isSelected && { color: C.ink },
+                                      ]}
+                                    >
+                                      {isSelected ? '✓ STACKED: ' : '+ '}
+                                      {f.shortName} ({f.factor})
+                                    </Text>
+                                  </View>
+                                  <Text
+                                    style={[
+                                      styles.stackOptionSub,
+                                      isSelected && { color: C.brown },
+                                    ]}
+                                  >
+                                    +{previewStack.totalStops} EV →{' '}
+                                    {previewRec.best
+                                      ? `${formatAperture(previewRec.best.aperture)} · ${formatShutter(previewRec.best.shutter)}`
+                                      : 'Out of EV'}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
             )}
 
@@ -1660,7 +2088,7 @@ export default function App() {
                           <View style={styles.filterCardHead}>
                             <View style={[styles.filterDot, { backgroundColor: C.orange }]} />
                             <Text style={styles.filterCardTitle}>{g.name}</Text>
-                            {activeFilter.id !== 'none' && (
+                            {activeFilter.hasFilters && (
                               <View style={[styles.filterFactorBadge, { backgroundColor: activeFilter.color }]}>
                                 <Text style={styles.filterFactorText}>
                                   NET {gr.netEvStops >= 0 ? `+${gr.netEvStops}` : gr.netEvStops} EV
@@ -1733,79 +2161,106 @@ export default function App() {
               </View>
             )}
 
-            {/* TAB 4: Film Stock Latitude & Emulsion Guide */}
+            {/* TAB 4: Loaded Film Field Guide & Shooting Tips (for the film selected in Step 1) */}
             {(activeDetailTab === 'film' || activeDetailTab === 'all') && (
               <View style={styles.filterSection} nativeID="film-guide-tab">
-                <View style={styles.grittyHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.altTitle}>
-                      35MM FILM STOCK LATITUDE & RECIPROCITY GUIDE
+                <Text style={styles.altTitle}>
+                  LOADED 35MM FILM FIELD GUIDE ·{' '}
+                  {activeFilmStock ? activeFilmStock.name.toUpperCase() : `GENERIC ISO ${iso} EMULSION`}
+                </Text>
+                <Text style={styles.altHint}>
+                  Shooting tips, dynamic range latitude, and reciprocity guide for the 35mm film loaded in Step 1:
+                </Text>
+
+                <View
+                  style={[
+                    styles.filterCard,
+                    { borderColor: C.mustard, borderWidth: 2, marginTop: 10 },
+                  ]}
+                >
+                  <View style={styles.filterCardHead}>
+                    <FilmStripSvgIcon size={16} color={C.mustard} />
+                    <Text style={styles.filterCardTitle}>
+                      {activeFilmStock ? activeFilmStock.name : `Standard ISO ${iso} 35mm Film`}
                     </Text>
-                    <Text style={styles.altHint}>
-                      Showing{' '}
-                      {showAllFilmGuideStocks || filmStocks.filter((s) => s.iso === iso).length === 0
-                        ? `all ${filmStocks.length} 35mm emulsions`
-                        : `${filmStocks.filter((s) => s.iso === iso).length} film stock(s) matching ISO ${iso}`}
-                      {' — '}tap any card to load its ISO, latitude & Schwarzschild reciprocity curve:
+                    <View style={[styles.filterFactorBadge, { backgroundColor: C.mustard }]}>
+                      <Text style={styles.filterFactorText}>ISO {iso}</Text>
+                    </View>
+                    <View style={[styles.filterFactorBadge, { backgroundColor: C.teal }]}>
+                      <Text style={[styles.filterFactorText, { color: C.paper }]}>
+                        {activeFilmStock
+                          ? `LATITUDE +${activeFilmStock.latitudeOverStops} / −${activeFilmStock.latitudeUnderStops} EV`
+                          : 'LATITUDE +2 / −1 EV'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={[styles.filterEffect, { color: C.mustard, marginTop: 6 }]}>
+                    {activeFilmStock
+                      ? `${activeFilmStock.process} · Grain Structure: ${activeFilmStock.grain}`
+                      : 'Standard 35mm Analog Curve · Balanced Grain'}
+                  </Text>
+
+                  <Text style={[styles.filterEffect, { marginTop: 4 }]}>
+                    {activeFilmStock
+                      ? activeFilmStock.character
+                      : `Baseline ISO ${iso} film speed for 35mm cameras. Select a specific emulsion in Step 1 above if you want exact manufacturer latitude and reciprocity data.`}
+                  </Text>
+
+                  {/* Dynamic Range & Current Setting Safety Check */}
+                  <View style={[styles.grittyMetricsBox, { marginTop: 10 }]}>
+                    <View style={styles.grittyMetricRow}>
+                      <View style={styles.grittyMetricItem}>
+                        <Text style={[styles.grittyMetricLabel, { color: C.teal }]}>
+                          HIGHLIGHT OVEREXPOSURE LIMIT
+                        </Text>
+                        <Text style={styles.grittyMetricValue}>
+                          +{activeFilmStock ? activeFilmStock.latitudeOverStops : 2} STOPS (+EV)
+                        </Text>
+                      </View>
+                      <View style={styles.grittyMetricItem}>
+                        <Text style={[styles.grittyMetricLabel, { color: C.orange }]}>
+                          SHADOW UNDEREXPOSURE LIMIT
+                        </Text>
+                        <Text style={styles.grittyMetricValue}>
+                          −{activeFilmStock ? activeFilmStock.latitudeUnderStops : 1} STOPS (−EV)
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.grittyLabNote, { marginTop: 6 }]}>
+                      <Text style={{ color: C.mustard }}>ON YOUR {camera!.name.toUpperCase()} RIGHT NOW: </Text>
+                      {formatAperture(bestDisplay.aperture)} · {formatShutter(bestDisplay.shutter)} is{' '}
+                      {formatError(bestDisplay.errorStops)} from ideal —{' '}
+                      {bestDisplay.errorStops <= (activeFilmStock?.latitudeOverStops ?? 2) &&
+                      bestDisplay.errorStops >= -(activeFilmStock?.latitudeUnderStops ?? 1)
+                        ? '✓ SAFELY WITHIN THIS FILM’S LATITUDE WINDOW.'
+                        : '⚠ OUTSIDE SAFE LATITUDE — ADJUST APERTURE/SHUTTER OR ADD AN ND/CPL FILTER.'}
                     </Text>
                   </View>
-                  <Pressable
-                    nativeID="btn-toggle-all-film-stocks"
-                    onPress={() => setShowAllFilmGuideStocks((v) => !v)}
-                    style={styles.foldTabsCloseBtn}
-                  >
-                    <Text style={styles.foldTabsCloseText}>
-                      {showAllFilmGuideStocks
-                        ? `▲ SHOW ONLY ISO ${iso} STOCKS`
-                        : `▼ SHOW ALL ${filmStocks.length} EMULSIONS`}
-                    </Text>
-                  </Pressable>
-                </View>
-                <View style={[styles.filterGrid, wide && { flexDirection: 'row', flexWrap: 'wrap' }]}>
-                  {(showAllFilmGuideStocks || filmStocks.filter((s) => s.iso === iso).length === 0
-                    ? filmStocks
-                    : filmStocks.filter((s) => s.iso === iso)
-                  ).map((stock) => {
-                    const isSelected = activeFilmStock?.id === stock.id;
-                    return (
-                      <Pressable
-                        key={`tab-stock-${stock.id}`}
-                        onPress={() => {
-                          setIso(stock.iso);
-                          setFilmStockId(stock.id);
-                        }}
-                        style={[
-                          styles.filterCard,
-                          wide && { width: '48.5%' },
-                          isSelected && { borderColor: C.mustard, borderWidth: 2 },
-                        ]}
-                      >
-                        <View style={styles.filterCardHead}>
-                          <Text style={styles.filterCardTitle}>{stock.name}</Text>
-                          <View style={[styles.filterFactorBadge, { backgroundColor: C.mustard }]}>
-                            <Text style={styles.filterFactorText}>ISO {stock.iso}</Text>
-                          </View>
-                          <View style={[styles.filterFactorBadge, { backgroundColor: C.teal }]}>
-                            <Text style={[styles.filterFactorText, { color: C.paper }]}>
-                              +{stock.latitudeOverStops}/−{stock.latitudeUnderStops} EV
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={[styles.filterEffect, { color: C.mustard }]}>
-                          {stock.process} · Grain: {stock.grain}
-                        </Text>
-                        <Text style={styles.filterEffect}>{stock.character}</Text>
-                        <Text style={[styles.grittyLabNote, { marginTop: 4 }]}>
-                          <Text style={{ color: C.orange }}>FIELD TIP: </Text>
-                          {stock.fieldTip}
-                        </Text>
-                        <Text style={[styles.grittyLabNote, { marginTop: 3 }]}>
-                          <Text style={{ color: C.mustard }}>RECIPROCITY (≥1S): </Text>
-                          {stock.reciprocityNote}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+
+                  {/* Shooting Tips for this Loaded Film */}
+                  <Text style={[styles.grittyLabNote, { marginTop: 8, fontSize: 11 }]}>
+                    <Text style={{ color: C.orange }}>FIELD SHOOTING TIP: </Text>
+                    {activeFilmStock
+                      ? activeFilmStock.fieldTip
+                      : 'When in doubt with negative film, favor +0.5 to +1 stop more light (wider aperture or 1 step slower shutter) to preserve shadow detail.'}
+                  </Text>
+
+                  <Text style={[styles.grittyLabNote, { marginTop: 6, fontSize: 11 }]}>
+                    <Text style={{ color: C.teal }}>METERING & BRACKETING RULE FOR THIS ROLL: </Text>
+                    {activeFilmStock?.process === 'E-6 Slide'
+                      ? 'Slide reversal film has almost zero highlight tolerance (±0.5 EV). Meter for the brightest lit highlights and never overexpose.'
+                      : activeFilmStock?.process.includes('B&W')
+                      ? 'Expose for the shadows and develop for the highlights. Pair with Yellow (#8), Orange (#16), or Red (#25) filters in the Filter tab to separate clouds and skin tones.'
+                      : 'Color negative film loves light in the shadows: erring +1 stop over (+1 EV) yields richer colors and finer grain than underexposing.'}
+                  </Text>
+
+                  <Text style={[styles.grittyLabNote, { marginTop: 6, fontSize: 11 }]}>
+                    <Text style={{ color: C.mustard }}>LONG EXPOSURE RECIPROCITY (≥1S BULB): </Text>
+                    {activeFilmStock
+                      ? activeFilmStock.reciprocityNote
+                      : 'Standard Schwarzschild p=1.30 (Metered 2s → Shoot 2.5s, 4s → 6s, 15s → 34s).'}
+                  </Text>
                 </View>
               </View>
             )}
@@ -2730,5 +3185,148 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: C.mustard,
     letterSpacing: 0.8,
+  },
+
+  // --- STACKABLE LENS FILTERS ---
+  filterStackSubBox: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: '#1E1914',
+    borderWidth: 1.5,
+    borderColor: C.mustard,
+    borderLeftWidth: 4,
+    gap: 6,
+  },
+  filterStackHeaderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  filterStackTitle: {
+    fontFamily: display,
+    fontSize: 15,
+    color: C.mustard,
+    letterSpacing: 1,
+  },
+  filterStackHint: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.paperDark,
+    marginTop: 2,
+  },
+  filterStackActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  clearStackBtn: {
+    borderWidth: 1,
+    borderColor: C.mustard,
+    backgroundColor: C.ink,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  clearStackBtnText: {
+    fontFamily: display,
+    fontSize: 12,
+    color: C.mustard,
+    letterSpacing: 0.8,
+  },
+  stackOptionPill: {
+    borderWidth: 1,
+    borderColor: '#5A4E40',
+    backgroundColor: C.ink,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    alignItems: 'flex-start',
+  },
+  stackOptionTitle: {
+    fontFamily: display,
+    fontSize: 14,
+    color: C.paper,
+    letterSpacing: 0.8,
+  },
+  stackOptionSub: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.mustard,
+    marginTop: 1,
+  },
+  activeStackChainBox: {
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: '#4A4035',
+    gap: 6,
+  },
+  activeStackChainRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  activeStackChainLabel: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.paperDark,
+    letterSpacing: 0.8,
+  },
+  ringBadge: {
+    borderWidth: 1,
+    borderColor: C.paper,
+    backgroundColor: '#3A3127',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  ringBadgeText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.paper,
+    letterSpacing: 0.6,
+  },
+  ringArrowText: {
+    fontFamily: display,
+    fontSize: 15,
+    color: C.mustard,
+  },
+  activeStackEffectText: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.paper,
+  },
+  cardStackToggleBtn: {
+    borderWidth: 1,
+    borderColor: C.mustard,
+    backgroundColor: C.ink,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  cardStackToggleText: {
+    fontFamily: display,
+    fontSize: 12,
+    color: C.mustard,
+    letterSpacing: 0.6,
+  },
+  cardInlineStackBox: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1.5,
+    borderColor: C.mustard,
+    gap: 6,
+  },
+  filterBtnTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterBtnDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: C.paper,
   },
 });
