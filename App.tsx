@@ -114,6 +114,39 @@ export default function App() {
     setPreferredAperture(undefined);
   };
 
+  const hasActiveTweaks =
+    filterId !== 'none' ||
+    grittyId !== 'off' ||
+    validPreferredAperture !== undefined ||
+    focusDistanceM !== 3.0 ||
+    isHyperfocalMode ||
+    conditionId !== 'sunny';
+
+  const defaultBrandId = brands[0].id;
+  const defaultCameraId = cameras.find((c) => c.brandId === defaultBrandId)?.id;
+  const isDefaultGear =
+    iso === 400 &&
+    brandId === defaultBrandId &&
+    camera?.id === defaultCameraId &&
+    (lensId === undefined || lensId === cameraLenses[0]?.id);
+
+  const resetTweaksToSunny16 = () => {
+    setConditionId('sunny');
+    setFilterId('none');
+    setGrittyId('off');
+    setPreferredAperture(undefined);
+    setFocusDistanceM(3.0);
+    setIsHyperfocalMode(false);
+  };
+
+  const resetFullBoard = () => {
+    setIso(400);
+    setBrandId(defaultBrandId);
+    setCameraId(defaultCameraId);
+    setLensId(undefined);
+    resetTweaksToSunny16();
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="dark" />
@@ -156,6 +189,80 @@ export default function App() {
               ))
             )}
           </Section>
+
+          {/* Board Control Bar (Start / Reset before Exposure Table) */}
+          {camera && lens && (
+            <View style={styles.controlBar} nativeID="board-control-bar">
+              <View style={styles.controlBarInfo}>
+                <View style={styles.controlStatusRow}>
+                  <View
+                    style={[
+                      styles.controlStatusDot,
+                      { backgroundColor: hasActiveTweaks ? C.orange : C.teal },
+                    ]}
+                  />
+                  <Text style={styles.controlBarTitle}>
+                    {hasActiveTweaks
+                      ? 'CUSTOM OVERRIDES ACTIVE'
+                      : 'BASELINE · PURE SUNNY 16 READY'}
+                  </Text>
+                </View>
+                <Text style={styles.controlBarSub}>
+                  ISO {iso} · {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
+                  {filterId !== 'none' ? ` · ${activeFilter.shortName}` : ''}
+                  {grittyId !== 'off' ? ` · ${activeGritty.shortName}` : ''}
+                  {validPreferredAperture !== undefined
+                    ? ` · Lock ${formatAperture(validPreferredAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})`
+                    : ''}
+                </Text>
+              </View>
+
+              <View style={styles.controlBarButtons}>
+                <Pressable
+                  nativeID="btn-start-pure-sunny16"
+                  onPress={resetTweaksToSunny16}
+                  style={({ pressed, hovered }: any) => [
+                    styles.controlBtn,
+                    styles.controlBtnStart,
+                    !hasActiveTweaks && styles.controlBtnDisabled,
+                    (pressed || hovered) && hasActiveTweaks && { opacity: 0.9 },
+                    pressed && { transform: [{ translateY: 1 }] },
+                  ]}
+                >
+                  <Text style={styles.controlBtnStartText}>
+                    ↻ START · PURE SUNNY 16
+                  </Text>
+                  <Text style={styles.controlBtnStartSub}>
+                    Keep gear · Clear DoF, filters & grit
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  nativeID="btn-reset-full-board"
+                  onPress={resetFullBoard}
+                  style={({ pressed, hovered }: any) => [
+                    styles.controlBtn,
+                    styles.controlBtnResetAll,
+                    !hasActiveTweaks && isDefaultGear && styles.controlBtnDisabled,
+                    (pressed || hovered) && (hasActiveTweaks || !isDefaultGear) && { backgroundColor: C.ink },
+                    pressed && { transform: [{ translateY: 1 }] },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.controlBtnResetText,
+                      !hasActiveTweaks && isDefaultGear && { color: C.brown },
+                    ]}
+                  >
+                    ⟲ RESET FULL BOARD
+                  </Text>
+                  <Text style={styles.controlBtnResetSub}>
+                    Reset ISO, camera, lens & all settings
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {/* Exposure table */}
           {camera && lens && (
@@ -668,7 +775,42 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: display, fontSize: 20, color: C.ink, letterSpacing: 1 },
   chipSub: { fontFamily: type, fontSize: 10, color: C.brown },
 
-  tableWrap: { marginTop: 28, borderWidth: 3, borderColor: C.ink },
+  controlBar: {
+    marginTop: 24,
+    borderWidth: 3,
+    borderColor: C.ink,
+    backgroundColor: C.paperDark,
+    padding: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  controlBarInfo: { flex: 1, minWidth: 240 },
+  controlStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  controlStatusDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: C.ink },
+  controlBarTitle: { fontFamily: display, fontSize: 22, color: C.ink, letterSpacing: 1.5 },
+  controlBarSub: { fontFamily: type, fontSize: 12, color: C.brown, marginTop: 2 },
+  controlBarButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  controlBtn: {
+    borderWidth: 2,
+    borderColor: C.ink,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 190,
+  },
+  controlBtnStart: { backgroundColor: C.mustard },
+  controlBtnResetAll: { backgroundColor: C.orange },
+  controlBtnDisabled: { backgroundColor: C.paper, opacity: 0.65 },
+  controlBtnStartText: { fontFamily: display, fontSize: 20, color: C.ink, letterSpacing: 1.2 },
+  controlBtnStartSub: { fontFamily: type, fontSize: 10, color: C.ink },
+  controlBtnResetText: { fontFamily: display, fontSize: 20, color: C.paper, letterSpacing: 1.2 },
+  controlBtnResetSub: { fontFamily: type, fontSize: 10, color: C.paperDark },
+
+  tableWrap: { marginTop: 14, borderWidth: 3, borderColor: C.ink },
   tableHeader: { backgroundColor: C.teal, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10, borderBottomWidth: 3, borderColor: C.ink, flexWrap: 'wrap', gap: 8 },
   tableHeaderText: { fontFamily: display, fontSize: 34, color: C.ink, letterSpacing: 3 },
   headerBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
