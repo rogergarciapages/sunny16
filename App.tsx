@@ -37,6 +37,7 @@ import {
 } from './lib/exposure';
 import WeatherIcon from './components/WeatherIcon';
 import DepthOfFieldIndicator from './components/DepthOfFieldIndicator';
+import { CameraSvgIcon, HandSvgIcon, FilmStripSvgIcon } from './components/VintageIcons';
 
 const C = {
   paper: '#F3EAD3',
@@ -256,14 +257,16 @@ export default function App() {
               <View style={styles.rigLockerTopRow}>
                 <View style={styles.rigLockerTitleGroup}>
                   <View style={styles.rigBadgeIcon}>
-                    <Text style={styles.rigBadgeIconText}>📷</Text>
+                    <CameraSvgIcon size={18} color={C.mustard} />
                   </View>
-                  <View>
-                    <Text style={styles.rigLockerTitle}>YOUR LOADED RIG (STEPS 1–4)</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rigLockerTitle}>
+                      ACTIVE CAMERA, LENS & FILM SETUP (STEPS 1–4)
+                    </Text>
                     <Text style={styles.rigLockerSub}>
                       {gearCollapsed
-                        ? 'Gear locked for field shooting — tap any card below to swap gear'
-                        : 'Select your film, camera & lens below, then lock rig to focus on the meter'}
+                        ? 'Steps 1–4 are hidden so you can meter faster — tap any card below or the button to change your Film, Camera, or Lens'
+                        : 'Select your 1. Film/ISO, 2. Brand, 3. Camera Model & 4. Lens below — or hide these steps to jump straight to the Exposure Table'}
                     </Text>
                   </View>
                 </View>
@@ -281,7 +284,14 @@ export default function App() {
                       gearCollapsed && { color: C.ink },
                     ]}
                   >
-                    {gearCollapsed ? '▼ CHANGE GEAR' : '▲ LOCK RIG & METER'}
+                    {gearCollapsed
+                      ? '▼ CHANGE CAMERA / LENS / FILM'
+                      : '▲ HIDE CAMERA / LENS / FILM STEPS'}
+                  </Text>
+                  <Text style={styles.rigCollapseBtnSub}>
+                    {gearCollapsed
+                      ? 'Show Steps 1–4 to swap gear'
+                      : 'Collapse Steps 1–4 & focus on meter'}
                   </Text>
                 </Pressable>
               </View>
@@ -292,7 +302,10 @@ export default function App() {
                   onPress={() => setGearCollapsed(false)}
                   style={styles.rigSummaryCard}
                 >
-                  <Text style={styles.rigCardStep}>1 · FILM STOCK / ISO</Text>
+                  <View style={styles.rigCardHeadRow}>
+                    <Text style={styles.rigCardStep}>STEP 1 · FILM STOCK / ISO</Text>
+                    {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE FILM ▾</Text>}
+                  </View>
                   <Text style={styles.rigCardVal} numberOfLines={1}>
                     {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}
                   </Text>
@@ -306,7 +319,10 @@ export default function App() {
                   onPress={() => setGearCollapsed(false)}
                   style={styles.rigSummaryCard}
                 >
-                  <Text style={styles.rigCardStep}>2–3 · CAMERA BODY</Text>
+                  <View style={styles.rigCardHeadRow}>
+                    <Text style={styles.rigCardStep}>STEPS 2–3 · CAMERA BODY</Text>
+                    {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE CAMERA ▾</Text>}
+                  </View>
                   <Text style={styles.rigCardVal} numberOfLines={1}>
                     {activeBrandName} {camera.name}
                   </Text>
@@ -320,7 +336,10 @@ export default function App() {
                   onPress={() => setGearCollapsed(false)}
                   style={styles.rigSummaryCard}
                 >
-                  <Text style={styles.rigCardStep}>4 · MOUNTED LENS</Text>
+                  <View style={styles.rigCardHeadRow}>
+                    <Text style={styles.rigCardStep}>STEP 4 · MOUNTED LENS</Text>
+                    {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE LENS ▾</Text>}
+                  </View>
                   <Text style={styles.rigCardVal} numberOfLines={1}>
                     {lens.name}
                   </Text>
@@ -530,7 +549,10 @@ export default function App() {
                 style={styles.lockRigBottomBanner}
               >
                 <Text style={styles.lockRigBottomText}>
-                  ▲ LOCK RIG ({activeBrandName.toUpperCase()} {camera?.name.toUpperCase()} · {lens?.name.toUpperCase()}) & FOCUS ON METER ▲
+                  ▲ DONE SELECTING GEAR — HIDE CAMERA / LENS / FILM STEPS & JUMP TO EXPOSURE TABLE ▲
+                </Text>
+                <Text style={styles.lockRigBottomSub}>
+                  Loaded: {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`} · {activeBrandName} {camera?.name} · {lens?.name} (you can reopen Steps 1–4 anytime above)
                 </Text>
               </Pressable>
             </View>
@@ -549,7 +571,7 @@ export default function App() {
                   />
                   <Text style={styles.controlBarTitle}>
                     {hasActiveTweaks
-                      ? 'CUSTOM OVERRIDES ACTIVE'
+                      ? 'CUSTOM EXPOSURE MODIFIERS ACTIVE'
                       : 'BASELINE · PURE SUNNY 16 READY'}
                   </Text>
                 </View>
@@ -559,7 +581,7 @@ export default function App() {
                   {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
                   {filterId !== 'none' ? ` · ${activeFilter.shortName}` : ''}
                   {grittyId !== 'off' ? ` · ${activeGritty.shortName}` : ''}
-                  {prioritizeHandheld ? ' · 1/f Guard' : ''}
+                  {prioritizeHandheld ? ' · 1/f Handheld Guard' : ''}
                   {lightConditionedAperture !== undefined
                     ? ` · Lock ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})`
                     : ''}
@@ -579,10 +601,10 @@ export default function App() {
                   ]}
                 >
                   <Text style={styles.controlBtnStartText}>
-                    ↻ START · PURE SUNNY 16
+                    ↻ RESET METER TO PURE SUNNY 16
                   </Text>
                   <Text style={styles.controlBtnStartSub}>
-                    Keep gear · Clear DoF, filters & grit
+                    Keep current camera/lens/film · Clear filters, push & DoF locks
                   </Text>
                 </Pressable>
 
@@ -603,10 +625,10 @@ export default function App() {
                       !hasActiveTweaks && isDefaultGear && { color: C.brown },
                     ]}
                   >
-                    ⟲ RESET FULL BOARD
+                    ⟲ RESET ENTIRE APP (DEFAULT GEAR)
                   </Text>
                   <Text style={styles.controlBtnResetSub}>
-                    Reset ISO, camera, lens & all settings
+                    Reset film ISO, camera, lens & all settings to defaults
                   </Text>
                 </Pressable>
               </View>
@@ -676,7 +698,7 @@ export default function App() {
               <View style={styles.fieldToolbar} nativeID="field-toolbar">
                 <View style={styles.toolbarGroup}>
                   <Text style={styles.toolbarLabel}>
-                    SUBJECT LIGHT DIRECTION (SHADOW / BACKLIGHT COMPENSATION):
+                    SUBJECT LIGHT DIRECTION (OPENS APERTURE / SHUTTER WHEN SUN IS AT SIDE OR BEHIND SUBJECT):
                   </Text>
                   <View style={styles.toolbarRow}>
                     {lightDirections.map((dir) => {
@@ -702,24 +724,45 @@ export default function App() {
 
                 <View style={styles.toolbarGroup}>
                   <Text style={styles.toolbarLabel}>
-                    SCENE RANGE & HANDHELD 1/F CAMERA-SHAKE GUARD:
+                    LIGHTING SCENES TO DISPLAY & HANDHELD ANTI-SHAKE SHUTTER PRIORITY (1/FOCAL LENGTH RULE):
                   </Text>
                   <View style={styles.toolbarRow}>
                     {[
-                      { id: 'all' as const, label: 'ALL SCENES (10)' },
-                      { id: 'daylight' as const, label: 'DAYLIGHT (6)' },
-                      { id: 'lowlight' as const, label: 'GOLDEN / INDOOR / NIGHT (4)' },
+                      {
+                        id: 'all' as const,
+                        label: 'SHOW ALL SCENES (10)',
+                        sub: 'Full day-to-night table',
+                      },
+                      {
+                        id: 'daylight' as const,
+                        label: 'DAYLIGHT ONLY (6)',
+                        sub: 'Snow, sun, clouds & shade',
+                      },
+                      {
+                        id: 'lowlight' as const,
+                        label: 'GOLDEN / INDOOR / NIGHT (4)',
+                        sub: 'Sunset, dusk, window & neon',
+                      },
                     ].map((tab) => {
                       const active = sceneCategory === tab.id;
                       return (
                         <Pressable
                           key={tab.id}
                           nativeID={`scene-tab-${tab.id}`}
-                          onPress={() => setSceneCategory(tab.id)}
+                          onPress={() => {
+                            setSceneCategory(tab.id);
+                            if (tab.id !== 'all' && activeCondition.category !== tab.id) {
+                              const firstMatch = conditions.find((c) => c.category === tab.id);
+                              if (firstMatch) setConditionId(firstMatch.id);
+                            }
+                          }}
                           style={[styles.sceneTabPill, active && styles.sceneTabPillActive]}
                         >
                           <Text style={[styles.sceneTabText, active && { color: C.paper }]}>
                             {tab.label}
+                          </Text>
+                          <Text style={[styles.sceneTabSub, active && { color: C.paperDark }]}>
+                            {tab.sub}
                           </Text>
                         </Pressable>
                       );
@@ -732,14 +775,32 @@ export default function App() {
                         prioritizeHandheld && styles.handheldTogglePillActive,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.handheldToggleText,
-                          prioritizeHandheld && { color: C.paper },
-                        ]}
-                      >
-                        ✋ 1/F HANDHELD PRIORITY: {prioritizeHandheld ? 'ON' : 'OFF'}
-                      </Text>
+                      <View style={styles.handheldBtnRow}>
+                        <HandSvgIcon
+                          size={18}
+                          color={prioritizeHandheld ? C.paper : C.ink}
+                        />
+                        <View>
+                          <Text
+                            style={[
+                              styles.handheldToggleText,
+                              prioritizeHandheld && { color: C.paper },
+                            ]}
+                          >
+                            1/F HANDHELD PRIORITY: {prioritizeHandheld ? 'ON (AVOID CAMERA SHAKE)' : 'OFF'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.handheldToggleSub,
+                              prioritizeHandheld && { color: C.paperDark },
+                            ]}
+                          >
+                            {prioritizeHandheld
+                              ? `Keeping shutter ≥ 1/${Math.max(30, lens.focalLength, get35mmEquivalentFocalLength(camera, lens))}s for ${lens.focalLength}mm lens`
+                              : `Tap to keep shutter ≥ 1/${Math.max(30, lens.focalLength, get35mmEquivalentFocalLength(camera, lens))}s for sharp handheld shots`}
+                          </Text>
+                        </View>
+                      </View>
                     </Pressable>
                   </View>
                 </View>
@@ -768,7 +829,9 @@ export default function App() {
                 return (
                   <View style={styles.viewfinderHeroStrip} nativeID="viewfinder-hero-strip">
                     <View style={styles.viewfinderSceneCol}>
-                      <Text style={styles.viewfinderKicker}>LIVE VIEWFINDER · TAP SCENE BELOW</Text>
+                      <Text style={styles.viewfinderKicker}>
+                        SELECTED LIGHTING SCENE · TAP ANY WEATHER CARD BELOW TO CHANGE
+                      </Text>
                       <Text style={styles.viewfinderSceneTitle}>{activeCondition.title.toUpperCase()}</Text>
                       <Text style={styles.viewfinderSceneSub} numberOfLines={1}>
                         {activeCondition.hint}
@@ -777,13 +840,13 @@ export default function App() {
                     {heroBest ? (
                       <View style={styles.viewfinderDialsRow}>
                         <View style={styles.viewfinderDialBox}>
-                          <Text style={styles.viewfinderDialLabel}>APERTURE</Text>
+                          <Text style={styles.viewfinderDialLabel}>SET APERTURE</Text>
                           <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
                             {formatAperture(heroBest.aperture)}
                           </Text>
                         </View>
                         <View style={[styles.viewfinderDialBox, { backgroundColor: C.orange }]}>
-                          <Text style={styles.viewfinderDialLabel}>SHUTTER</Text>
+                          <Text style={styles.viewfinderDialLabel}>SET SHUTTER</Text>
                           <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
                             {formatShutter(heroBest.shutter)}
                           </Text>
@@ -799,18 +862,24 @@ export default function App() {
                                 : { backgroundColor: C.orange },
                             ]}
                           >
-                            <Text
-                              style={[
-                                styles.viewfinderShakeText,
-                                heroShake.status === 'borderline' && { color: C.ink },
-                              ]}
-                            >
-                              {heroShake.status === 'safe'
-                                ? '✓ SAFE'
-                                : heroShake.status === 'borderline'
-                                ? '⚠ BRACE'
-                                : '▲ TRIPOD'}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <HandSvgIcon
+                                size={13}
+                                color={heroShake.status === 'borderline' ? C.ink : C.paper}
+                              />
+                              <Text
+                                style={[
+                                  styles.viewfinderShakeText,
+                                  heroShake.status === 'borderline' && { color: C.ink },
+                                ]}
+                              >
+                                {heroShake.status === 'safe'
+                                  ? 'HANDHELD SAFE'
+                                  : heroShake.status === 'borderline'
+                                  ? 'BRACE HANDS'
+                                  : 'USE TRIPOD'}
+                              </Text>
+                            </View>
                           </View>
                         )}
                       </View>
@@ -1096,7 +1165,9 @@ export default function App() {
             {/* Quick In-Field Filter & Gritty Strip (Always accessible without switching tabs) */}
             <View style={styles.quickTweaksBox} nativeID="quick-tweaks-strip">
               <View style={styles.quickTweakCol}>
-                <Text style={styles.quickTweakLabel}>QUICK LENS FILTER:</Text>
+                <Text style={styles.quickTweakLabel}>
+                  SCREW-IN LENS FILTER (AUTO-COMPENSATES EXPOSURE FOR FILTER LIGHT LOSS):
+                </Text>
                 <View style={styles.filterPillRow}>
                   {lensFilters.map((f) => {
                     const isSelected = f.id === activeFilter.id;
@@ -1110,7 +1181,7 @@ export default function App() {
                         ]}
                       >
                         <Text style={[styles.quickMiniPillText, isSelected && { color: C.ink }]}>
-                          {f.shortName}
+                          {f.shortName} ({f.factor})
                         </Text>
                       </Pressable>
                     );
@@ -1118,7 +1189,9 @@ export default function App() {
                 </View>
               </View>
               <View style={styles.quickTweakCol}>
-                <Text style={styles.quickTweakLabel}>QUICK GRIT / PUSH RECIPE:</Text>
+                <Text style={styles.quickTweakLabel}>
+                  B&W PUSH / PULL DEVELOPMENT & STREET CONTRAST RECIPE:
+                </Text>
                 <View style={styles.filterPillRow}>
                   {grittyStyles.map((g) => {
                     const isSelected = g.id === activeGritty.id;
@@ -1132,7 +1205,7 @@ export default function App() {
                         ]}
                       >
                         <Text style={[styles.quickMiniPillText, isSelected && { color: C.paper }]}>
-                          {g.shortName}
+                          {g.shortName} ({g.badge})
                         </Text>
                       </Pressable>
                     );
@@ -1193,11 +1266,32 @@ export default function App() {
             {/* UX #4: 1968 Folder Tabs for Deep-Dive Panels */}
             <View style={styles.folderTabsBar} nativeID="detail-folder-tabs">
               {[
-                { id: 'dof' as const, label: '⊕ DOF & BOKEH', badge: formatAperture(bestDisplay.aperture) },
-                { id: 'filters' as const, label: '◐ FILTER COMPARE', badge: activeFilter.shortName },
-                { id: 'grit' as const, label: '▨ GRIT & PUSH LAB', badge: activeGritty.shortName },
-                { id: 'film' as const, label: '🎞 FILM GUIDE', badge: activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}` },
-                { id: 'all' as const, label: '⊞ ALL PANELS', badge: 'FULL SHEET' },
+                {
+                  id: 'dof' as const,
+                  label: '⊕ DEPTH OF FIELD & BOKEH',
+                  badge: `Focus & sharp zone (${formatAperture(bestDisplay.aperture)})`,
+                },
+                {
+                  id: 'filters' as const,
+                  label: '◐ LENS FILTER COMPARE',
+                  badge: `UV / Yellow / Red (${activeFilter.shortName})`,
+                },
+                {
+                  id: 'grit' as const,
+                  label: '▨ PUSH / PULL & GRIT LAB',
+                  badge: `B&W recipes (${activeGritty.shortName})`,
+                },
+                {
+                  id: 'film' as const,
+                  label: 'FILM LATITUDE GUIDE',
+                  badge: `Highlight/shadow (${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`})`,
+                  isFilmTab: true,
+                },
+                {
+                  id: 'all' as const,
+                  label: '⊞ SHOW ALL 4 PANELS',
+                  badge: 'Expand full reference sheet',
+                },
               ].map((tab) => {
                 const active = activeDetailTab === tab.id;
                 return (
@@ -1207,9 +1301,14 @@ export default function App() {
                     onPress={() => setActiveDetailTab(tab.id)}
                     style={[styles.folderTab, active && styles.folderTabActive]}
                   >
-                    <Text style={[styles.folderTabTitle, active && { color: C.ink }]}>
-                      {tab.label}
-                    </Text>
+                    <View style={styles.folderTabTitleRow}>
+                      {tab.isFilmTab && (
+                        <FilmStripSvgIcon size={14} color={active ? C.ink : C.paper} />
+                      )}
+                      <Text style={[styles.folderTabTitle, active && { color: C.ink }]}>
+                        {tab.label}
+                      </Text>
+                    </View>
                     <Text style={[styles.folderTabSub, active && { color: C.brown }]}>
                       {tab.badge}
                     </Text>
@@ -1726,15 +1825,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   dirPill: {
     borderWidth: 1.5,
     borderColor: C.ink,
     backgroundColor: C.paper,
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingHorizontal: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
   },
   dirPillActive: {
     backgroundColor: C.ink,
@@ -1756,15 +1857,23 @@ const styles = StyleSheet.create({
     backgroundColor: C.paper,
     paddingVertical: 5,
     paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
   },
   sceneTabPillActive: {
     backgroundColor: C.teal,
   },
   sceneTabText: {
     fontFamily: display,
-    fontSize: 14,
+    fontSize: 15,
     color: C.ink,
     letterSpacing: 1,
+  },
+  sceneTabSub: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.brown,
   },
   handheldTogglePill: {
     borderWidth: 1.5,
@@ -1772,15 +1881,27 @@ const styles = StyleSheet.create({
     backgroundColor: C.paper,
     paddingVertical: 5,
     paddingHorizontal: 10,
+    justifyContent: 'center',
+    minHeight: 40,
   },
   handheldTogglePillActive: {
     backgroundColor: C.orange,
   },
+  handheldBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   handheldToggleText: {
     fontFamily: display,
-    fontSize: 14,
+    fontSize: 15,
     color: C.ink,
     letterSpacing: 1,
+  },
+  handheldToggleSub: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.brown,
   },
 
   grid: {},
@@ -1975,12 +2096,19 @@ const styles = StyleSheet.create({
     backgroundColor: C.mustard,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    alignItems: 'center',
   },
   rigCollapseBtnText: {
     fontFamily: display,
     fontSize: 15,
     color: C.ink,
     letterSpacing: 1.2,
+  },
+  rigCollapseBtnSub: {
+    fontFamily: type,
+    fontSize: 9,
+    color: C.ink,
+    marginTop: 1,
   },
   rigCardsRow: {
     flexDirection: 'row',
@@ -1995,10 +2123,22 @@ const styles = StyleSheet.create({
     backgroundColor: C.paper,
     padding: 8,
   },
+  rigCardHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
   rigCardStep: {
     fontFamily: type,
     fontSize: 9,
     color: C.brown,
+    letterSpacing: 0.6,
+  },
+  rigCardEditTag: {
+    fontFamily: display,
+    fontSize: 11,
+    color: C.orange,
     letterSpacing: 0.6,
   },
   rigCardVal: {
@@ -2029,6 +2169,13 @@ const styles = StyleSheet.create({
     color: C.mustard,
     letterSpacing: 1.5,
     textAlign: 'center',
+  },
+  lockRigBottomSub: {
+    fontFamily: type,
+    fontSize: 10,
+    color: C.paperDark,
+    textAlign: 'center',
+    marginTop: 3,
   },
 
   // --- UX UPGRADE 2: DECADE PILLS & CAMERA SEARCH ---
@@ -2224,6 +2371,11 @@ const styles = StyleSheet.create({
   folderTabActive: {
     backgroundColor: C.mustard,
     borderColor: C.paper,
+  },
+  folderTabTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   folderTabTitle: {
     fontFamily: display,
