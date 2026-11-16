@@ -4,13 +4,14 @@ import { Platform, View, StyleSheet } from 'react-native';
 interface IconProps {
   size?: number;
   color?: string;
+  label?: string;
 }
 
 /**
  * Vintage 1968 SLR Camera SVG icon (replaces camera emoji).
  * Renders a native <svg> vector on Web and crisp geometric Views on native mobile.
  */
-export function CameraSvgIcon({ size = 20, color = '#E3A82B' }: IconProps) {
+export function CameraSvgIcon({ size = 20, color = '#E3A82B', label = '35mm SLR Camera Icon' }: IconProps) {
   if (Platform.OS === 'web') {
     return React.createElement(
       'svg',
@@ -19,7 +20,9 @@ export function CameraSvgIcon({ size = 20, color = '#E3A82B' }: IconProps) {
         height: size,
         viewBox: '0 0 24 24',
         fill: 'none',
-         style: { display: 'block', flexShrink: 0 },
+        role: 'img',
+        'aria-label': label,
+        style: { display: 'block', flexShrink: 0 },
       },
       // Shutter button on left shoulder
       React.createElement('rect', {
@@ -102,7 +105,7 @@ export function CameraSvgIcon({ size = 20, color = '#E3A82B' }: IconProps) {
  * Vintage 1968 Steady Hand / Anti-Shake SVG icon (replaces hand emoji on 1/f Handheld Priority).
  * Features an open palm with fingers and lateral anti-vibration brackets.
  */
-export function HandSvgIcon({ size = 16, color = '#1E1A16' }: IconProps) {
+export function HandSvgIcon({ size = 16, color = '#1E1A16', label = 'Handheld Anti-Shake Priority Icon' }: IconProps) {
   if (Platform.OS === 'web') {
     return React.createElement(
       'svg',
@@ -111,6 +114,8 @@ export function HandSvgIcon({ size = 16, color = '#1E1A16' }: IconProps) {
         height: size,
         viewBox: '0 0 24 24',
         fill: 'none',
+        role: 'img',
+        'aria-label': label,
         style: { display: 'block', flexShrink: 0 },
       },
       // Left anti-shake wave bracket
@@ -156,7 +161,7 @@ export function HandSvgIcon({ size = 16, color = '#1E1A16' }: IconProps) {
 /**
  * Vintage 35mm Perforated Film Strip SVG icon (replaces film emoji in Film Guide tab).
  */
-export function FilmStripSvgIcon({ size = 16, color = '#F3EAD3' }: IconProps) {
+export function FilmStripSvgIcon({ size = 16, color = '#F3EAD3', label = '35mm Film Strip Icon' }: IconProps) {
   if (Platform.OS === 'web') {
     return React.createElement(
       'svg',
@@ -165,6 +170,8 @@ export function FilmStripSvgIcon({ size = 16, color = '#F3EAD3' }: IconProps) {
         height: size,
         viewBox: '0 0 24 24',
         fill: 'none',
+        role: 'img',
+        'aria-label': label,
         style: { display: 'block', flexShrink: 0 },
       },
       React.createElement('rect', {

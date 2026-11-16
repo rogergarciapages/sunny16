@@ -203,14 +203,25 @@ export default function DepthOfFieldIndicator({
   const snapDof = calculateDof(camera, lens, resolveValidPair(8)?.aperture ?? 8, snapFocusM);
 
   return (
-    <View style={styles.container} nativeID="dof-indicator">
+    <View
+      style={styles.container}
+      nativeID="dof-indicator"
+      role="region"
+      aria-label="Depth of Field and Bokeh Visualizer"
+    >
       {/* Section Header */}
       <View style={styles.headerRow}>
         <View style={styles.titleRow}>
           <View style={styles.compassBadge}>
             <Text style={styles.compassText}>⊕</Text>
           </View>
-          <Text style={styles.sectionTitle}>DEPTH OF FIELD & BOKEH VISUALIZER</Text>
+          <Text
+            style={styles.sectionTitle}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            DEPTH OF FIELD & BOKEH VISUALIZER
+          </Text>
         </View>
         <View style={styles.lensBadge}>
           <Text style={styles.lensBadgeText}>
@@ -245,7 +256,10 @@ export default function DepthOfFieldIndicator({
       {/* Interactive Controls: Subject Distance & Aperture Stop */}
       <View style={styles.controlsWrap}>
         <View style={styles.controlGroup}>
-          <Text style={styles.controlLabel}>
+          <Text
+            style={styles.controlLabel}
+            accessibilityRole={'label' as any}
+          >
             SUBJECT FOCUS DISTANCE (CONDITIONED BY LIGHT — TAP TO UPDATE EXPOSURE & DOF):
           </Text>
           <View style={styles.pillRow}>
@@ -257,6 +271,8 @@ export default function DepthOfFieldIndicator({
                 <Pressable
                   key={d.label}
                   nativeID={`dof-dist-${d.m}`}
+                  accessibilityRole="button"
+                  aria-label={`Focus distance ${d.label} (${d.role}) at ${formatAperture(resolvedAp)}${validPairForDist ? ` and ${formatShutter(validPairForDist.shutter)}` : ''}`}
                   onPress={() => onSelectDistance(d.m, resolvedAp)}
                   style={[styles.distPill, active && styles.distPillActive]}
                 >
@@ -274,6 +290,8 @@ export default function DepthOfFieldIndicator({
             })}
             <Pressable
               nativeID="dof-dist-hyperfocal"
+              accessibilityRole="button"
+              aria-label={`Set Hyperfocal distance ${formatDist(baseDof.hyperfocalM)} at ${formatAperture(hyperfocalTargetAp)}`}
               onPress={() => onSelectHyperfocal(hyperfocalTargetAp)}
               style={[styles.distPill, isHyperfocalMode && styles.distPillHyperfocal]}
             >
@@ -293,12 +311,17 @@ export default function DepthOfFieldIndicator({
         </View>
 
         <View style={[styles.controlGroup, { marginTop: 8 }]}>
-          <Text style={styles.controlLabel}>
+          <Text
+            style={styles.controlLabel}
+            accessibilityRole={'label' as any}
+          >
             APERTURES POSSIBLE IN THIS LIGHT (UNAVAILABLE LENS STOPS ARE LOCKED OUT):
           </Text>
           <View style={styles.pillRow}>
             <Pressable
               nativeID="dof-ap-auto"
+              accessibilityRole="button"
+              aria-label="Automatic Sunny 16 aperture (1/ISO priority)"
               onPress={() => onSelectAperture(undefined)}
               style={[styles.apPill, !hasApertureLock && styles.apPillActive]}
             >
@@ -317,6 +340,12 @@ export default function DepthOfFieldIndicator({
                 <Pressable
                   key={ap}
                   nativeID={`dof-ap-${ap}`}
+                  accessibilityRole="button"
+                  aria-label={
+                    pair
+                      ? `Lock aperture ${formatAperture(ap)} at shutter speed ${formatShutter(pair.shutter)}`
+                      : `Aperture ${formatAperture(ap)} unavailable in current light (${limitLabel})`
+                  }
                   disabled={!isPossible}
                   onPress={() => {
                     if (isPossible) onSelectAperture(ap);
@@ -395,7 +424,11 @@ export default function DepthOfFieldIndicator({
       </View>
 
       {/* VISUAL INDICATOR 1: Side-Profile Depth of Field Scene Diagram */}
-      <View style={styles.diagramFrame}>
+      <View
+        style={styles.diagramFrame}
+        role="img"
+        aria-label={`Depth of field diagram showing sharp focus zone from ${formatDist(dof.nearLimitM)} to ${formatDist(dof.farLimitM)} around subject at ${formatDist(effectiveDistanceM)}`}
+      >
         {/* Sky & Ground Backdrop */}
         <View style={styles.skyBand} />
         <View style={styles.skyHorizonBand} />
@@ -557,9 +590,19 @@ export default function DepthOfFieldIndicator({
 
         {/* Bokeh Blur Disc Indicator */}
         <View style={styles.bokehCard}>
-          <Text style={styles.cardTitle}>BACKGROUND BOKEH DISC</Text>
+          <Text
+            style={styles.cardTitle}
+            accessibilityRole="header"
+            aria-level={3}
+          >
+            BACKGROUND BOKEH DISC
+          </Text>
           <View style={styles.bokehVisualRow}>
-            <View style={styles.bokehPreviewBox}>
+            <View
+              style={styles.bokehPreviewBox}
+              role="img"
+              aria-label={`Bokeh blur disc preview: ${dof.bokehLabel}, ${dof.infinityBlurMm.toFixed(2)}mm infinity blur`}
+            >
               <View
                 style={[
                   styles.bokehCircle,
@@ -592,7 +635,13 @@ export default function DepthOfFieldIndicator({
       {/* VISUAL INDICATOR 3: Vintage Engraved Lens Barrel DOF Scale */}
       <View style={styles.barrelCard}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>ENGRAVED LENS BARREL DOF SCALE (1968 STYLE)</Text>
+          <Text
+            style={styles.cardTitle}
+            accessibilityRole="header"
+            aria-level={3}
+          >
+            ENGRAVED LENS BARREL DOF SCALE (1968 STYLE)
+          </Text>
           <Text style={styles.cardSub}>
             ZONE BRACKET AT {formatAperture(effectiveAperture)}: [{formatDist(dof.nearLimitM)} — ♦ {formatDist(effectiveDistanceM)} — {formatDist(dof.farLimitM)}]
           </Text>
@@ -649,7 +698,11 @@ export default function DepthOfFieldIndicator({
         {/* 35mm Street Zone-Focus / Pre-Focus Quick Scale */}
         <View style={styles.zoneSnapBar} nativeID="street-zone-focus-bar">
           <View style={styles.zoneSnapInfo}>
-            <Text style={styles.zoneSnapTitle}>
+            <Text
+              style={styles.zoneSnapTitle}
+              accessibilityRole="header"
+              aria-level={3}
+            >
               35MM STREET ZONE-FOCUSING (PRE-FOCUS & SHOOT WITHOUT FOCUSING):
             </Text>
             <Text style={styles.zoneSnapSub}>
@@ -663,6 +716,8 @@ export default function DepthOfFieldIndicator({
           <View style={styles.zoneSnapBtns}>
             <Pressable
               nativeID="btn-zone-snap-street"
+              accessibilityRole="button"
+              aria-label={`Set street zone focus at ${snapFocusM.toFixed(1)} meters and ${formatAperture(resolveValidPair(8)?.aperture ?? 8)}`}
               onPress={() => onSelectDistance(snapFocusM, resolveValidPair(8)?.aperture ?? 8)}
               style={styles.zoneSnapBtn}
             >
@@ -672,6 +727,8 @@ export default function DepthOfFieldIndicator({
             </Pressable>
             <Pressable
               nativeID="btn-zone-snap-hyper"
+              accessibilityRole="button"
+              aria-label={`Set hyperfocal focus at ${formatDist(baseDof.hyperfocalM)} and ${formatAperture(hyperfocalTargetAp)}`}
               onPress={() => onSelectHyperfocal(hyperfocalTargetAp)}
               style={[styles.zoneSnapBtn, { backgroundColor: C.teal }]}
             >

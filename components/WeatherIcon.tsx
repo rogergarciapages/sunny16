@@ -50,32 +50,58 @@ function Cloud({ size, fill }: { size: number; fill: string }) {
   );
 }
 
+const WEATHER_LABELS: Record<ConditionId, string> = {
+  snow: 'Bright sun on snow or sand lighting icon (f/22)',
+  sunny: 'Direct bright sunny lighting icon (f/16)',
+  slight: 'Slight overcast clouds lighting icon (f/11)',
+  overcast: 'Overcast sky lighting icon (f/8)',
+  heavy: 'Heavy overcast storm clouds lighting icon (f/5.6)',
+  shade: 'Open shade or sunset sky lighting icon (f/4)',
+  golden: 'Golden hour warm low sun lighting icon (f/2.8)',
+  dusk: 'Blue hour or twilight dusk lighting icon (f/2)',
+  indoor: 'Bright indoor window lighting icon (f/1.4)',
+  night: 'Night street and neon lighting icon (f/1.4)',
+};
+
 export default function WeatherIcon({ id, size = 48 }: { id: ConditionId; size?: number }) {
+  const ariaLabel = WEATHER_LABELS[id];
   switch (id) {
     case 'snow':
       return (
-        <View style={{ alignItems: 'center' }}>
+        <View role="img" aria-label={ariaLabel} style={{ alignItems: 'center' }}>
           <Sun size={size * 0.8} />
           <View style={[styles.line, { width: size }]} />
           <View style={[styles.line, { width: size * 0.7, marginTop: 3 }]} />
         </View>
       );
     case 'sunny':
-      return <Sun size={size} />;
+      return (
+        <View role="img" aria-label={ariaLabel}>
+          <Sun size={size} />
+        </View>
+      );
     case 'slight':
       return (
-        <View style={{ width: size, height: size }}>
+        <View role="img" aria-label={ariaLabel} style={{ width: size, height: size }}>
           <View style={{ position: 'absolute', right: 0, top: 0 }}><Sun size={size * 0.6} /></View>
           <View style={{ position: 'absolute', left: 0, bottom: 4 }}><Cloud size={size * 0.85} fill="#F3EAD3" /></View>
         </View>
       );
     case 'overcast':
-      return <Cloud size={size} fill="#9FB8AE" />;
+      return (
+        <View role="img" aria-label={ariaLabel}>
+          <Cloud size={size} fill="#9FB8AE" />
+        </View>
+      );
     case 'heavy':
-      return <Cloud size={size} fill={INK} />;
+      return (
+        <View role="img" aria-label={ariaLabel}>
+          <Cloud size={size} fill={INK} />
+        </View>
+      );
     case 'shade':
       return (
-        <View style={{ alignItems: 'center', width: size, height: size * 0.6, justifyContent: 'flex-end' }}>
+        <View role="img" aria-label={ariaLabel} style={{ alignItems: 'center', width: size, height: size * 0.6, justifyContent: 'flex-end' }}>
           <View style={{ width: size * 0.5, height: size * 0.25, borderTopLeftRadius: size, borderTopRightRadius: size, borderWidth: 2, borderBottomWidth: 0, borderColor: INK }} />
           <View style={[styles.line, { width: size }]} />
           <View style={[styles.line, { width: size * 0.75, marginTop: 3 }]} />
@@ -84,7 +110,7 @@ export default function WeatherIcon({ id, size = 48 }: { id: ConditionId; size?:
       );
     case 'golden':
       return (
-        <View style={{ alignItems: 'center', width: size, height: size * 0.72, justifyContent: 'flex-end' }}>
+        <View role="img" aria-label={ariaLabel} style={{ alignItems: 'center', width: size, height: size * 0.72, justifyContent: 'flex-end' }}>
           <View style={{ marginBottom: -size * 0.2 }}>
             <Sun size={size * 0.68} color="#D9622B" filled />
           </View>
@@ -94,7 +120,7 @@ export default function WeatherIcon({ id, size = 48 }: { id: ConditionId; size?:
       );
     case 'dusk':
       return (
-        <View style={{ width: size, height: size * 0.78, alignItems: 'center', justifyContent: 'center' }}>
+        <View role="img" aria-label={ariaLabel} style={{ width: size, height: size * 0.78, alignItems: 'center', justifyContent: 'center' }}>
           {/* Crescent Moon */}
           <View
             style={{
@@ -114,6 +140,8 @@ export default function WeatherIcon({ id, size = 48 }: { id: ConditionId; size?:
     case 'indoor':
       return (
         <View
+          role="img"
+          aria-label={ariaLabel}
           style={{
             width: size * 0.68,
             height: size * 0.76,
@@ -132,6 +160,8 @@ export default function WeatherIcon({ id, size = 48 }: { id: ConditionId; size?:
     case 'night':
       return (
         <View
+          role="img"
+          aria-label={ariaLabel}
           style={{
             width: size * 0.78,
             height: size * 0.78,

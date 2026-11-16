@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { FontDisplay } from 'expo-font';
 import { useFonts, BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 import { SpecialElite_400Regular } from '@expo-google-fonts/special-elite';
 
@@ -41,6 +42,16 @@ import {
 import WeatherIcon from './components/WeatherIcon';
 import DepthOfFieldIndicator from './components/DepthOfFieldIndicator';
 import { CameraSvgIcon, HandSvgIcon, FilmStripSvgIcon } from './components/VintageIcons';
+import {
+  SEO_FAQS,
+  AppRoute,
+  CookieConsentStatus,
+  AdSenseSlot,
+  AnalogFieldManual,
+  InstitutionalPageView,
+  RetroFooterNav,
+  CookieConsentBanner,
+} from './components/EditorialAndCompliance';
 
 const C = {
   paper: '#F3EAD3',
@@ -52,10 +63,89 @@ const C = {
   brown: '#7A4E2D',
 };
 
+const SEO_TITLE = 'Sunny 16 Rule Calculator & Analog Light Meter';
+const SEO_DESCRIPTION =
+  'Calculate accurate exposure settings, shutter speed, and depth of field for your film camera without a light meter. Free pocket guide for analog photography.';
+const SEO_URL = 'https://sunny16rule.com';
+const SEO_OG_IMAGE = 'https://sunny16rule.com/og-preview.png';
+const COOKIE_STORAGE_KEY = 'sunny16_cookie_consent_v1';
+
+const ROUTE_META: Record<AppRoute, { title: string; path: string }> = {
+  calculator: {
+    title: SEO_TITLE,
+    path: '/',
+  },
+  about: {
+    title: 'About Sunny 16 Rule · 35mm Analog Photography Exposure Calculator',
+    path: '/about',
+  },
+  'privacy-policy': {
+    title: 'Privacy Policy & Cookie Disclosure · Sunny 16 Rule',
+    path: '/privacy-policy',
+  },
+  terms: {
+    title: 'Terms of Service & Optical Disclaimer · Sunny 16 Rule',
+    path: '/terms',
+  },
+  contact: {
+    title: 'Contact & 35mm Gear Database Requests · Sunny 16 Rule',
+    path: '/contact',
+  },
+};
+
+function parsePathnameToRoute(pathname: string): AppRoute {
+  const clean = pathname.replace(/\/+$/, '').toLowerCase();
+  if (clean === '/about') return 'about';
+  if (clean === '/privacy-policy') return 'privacy-policy';
+  if (clean === '/terms') return 'terms';
+  if (clean === '/contact') return 'contact';
+  return 'calculator';
+}
+
+const SEO_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebApplication',
+      name: 'Sunny 16 Rule Calculator',
+      url: SEO_URL,
+      description: SEO_DESCRIPTION,
+      applicationCategory: 'PhotographyApplication',
+      operatingSystem: 'Any / Web',
+      inLanguage: 'en',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+      featureList: [
+        'Sunny 16 exposure calculator',
+        'EV lighting table',
+        'Depth of field & bokeh visualizer',
+        '35mm screw-in lens filter stacker',
+        'Push/pull film latitude guide',
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: SEO_FAQS.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    },
+  ],
+};
+
 function Chip({ label, sub, active, onPress, id }: { label: string; sub?: string; active: boolean; onPress: () => void; id: string }) {
   return (
     <Pressable
       nativeID={id}
+      accessibilityRole="button"
+      aria-label={sub ? `${label} (${sub})` : label}
       onPress={onPress}
       style={({ pressed, hovered }: any) => [
         styles.chip,
@@ -72,10 +162,16 @@ function Chip({ label, sub, active, onPress, id }: { label: string; sub?: string
 
 function Section({ step, title, children }: { step: string; title: string; children: React.ReactNode }) {
   return (
-    <View style={styles.section}>
+    <View style={styles.section} role="region" aria-label={`Step ${step}: ${title}`}>
       <View style={styles.sectionHead}>
         <View style={styles.stepBadge}><Text style={styles.stepText}>{step}</Text></View>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text
+          style={styles.sectionTitle}
+          accessibilityRole="header"
+          aria-level={2}
+        >
+          {title}
+        </Text>
         <View style={styles.rule} />
       </View>
       <View style={styles.chipRow}>{children}</View>
@@ -84,10 +180,139 @@ function Section({ step, title, children }: { step: string; title: string; child
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ BebasNeue_400Regular, SpecialElite_400Regular });
+  const [fontsLoaded] = useFonts({
+    BebasNeue_400Regular: {
+      uri: BebasNeue_400Regular as any,
+      display: FontDisplay.SWAP,
+    },
+    SpecialElite_400Regular: {
+      uri: SpecialElite_400Regular as any,
+      display: FontDisplay.SWAP,
+    },
+  });
   const { width } = useWindowDimensions();
   const wide = width > 760;
   const compact = width < 520;
+
+  const [activeRoute, setActiveRoute] = useState<AppRoute>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      return parsePathnameToRoute(window.location.pathname);
+    }
+    return 'calculator';
+  });
+
+  const [cookieConsent, setCookieConsent] = useState<CookieConsentStatus>('undecided');
+  const [showCookieBanner, setShowCookieBanner] = useState<boolean>(false);
+
+  const applyConsentMode = (status: CookieConsentStatus) => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const granted = status === 'accepted_all' ? 'granted' : 'denied';
+    const w = window as any;
+    if (typeof w.gtag === 'function') {
+      w.gtag('consent', 'update', {
+        ad_storage: granted,
+        ad_user_data: granted,
+        ad_personalization: granted,
+        analytics_storage: granted,
+      });
+    }
+  };
+
+  const updateCookieConsent = (status: Exclude<CookieConsentStatus, 'undecided'>) => {
+    setCookieConsent(status);
+    setShowCookieBanner(false);
+    applyConsentMode(status);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(COOKIE_STORAGE_KEY, status);
+      } catch {
+        // Ignore storage quota / privacy mode errors
+      }
+    }
+  };
+
+  const navigateToRoute = (target: AppRoute) => {
+    setActiveRoute(target);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const nextPath = ROUTE_META[target].path;
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState({ route: target }, '', nextPath);
+      }
+      window.scrollTo?.({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    try {
+      const saved = window.localStorage.getItem(COOKIE_STORAGE_KEY);
+      if (saved === 'accepted_all' || saved === 'essential_only') {
+        setCookieConsent(saved);
+        setShowCookieBanner(false);
+        applyConsentMode(saved);
+      } else {
+        setShowCookieBanner(true);
+      }
+    } catch {
+      setShowCookieBanner(true);
+    }
+
+    const onPopState = () => {
+      setActiveRoute(parsePathnameToRoute(window.location.pathname));
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const routeMeta = ROUTE_META[activeRoute];
+    const canonicalUrl =
+      routeMeta.path === '/' ? SEO_URL : `${SEO_URL}${routeMeta.path}`;
+    document.documentElement.lang = 'en';
+    document.title = routeMeta.title;
+
+    const upsertMeta = (attr: 'name' | 'property', key: string, content: string) => {
+      let el = document.head.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    upsertMeta('name', 'description', SEO_DESCRIPTION);
+    upsertMeta('name', 'robots', 'index, follow, max-image-preview:large');
+    upsertMeta('property', 'og:type', 'website');
+    upsertMeta('property', 'og:url', canonicalUrl);
+    upsertMeta('property', 'og:title', routeMeta.title);
+    upsertMeta('property', 'og:description', SEO_DESCRIPTION);
+    upsertMeta('property', 'og:image', SEO_OG_IMAGE);
+    upsertMeta('name', 'twitter:card', 'summary_large_image');
+    upsertMeta('name', 'twitter:url', canonicalUrl);
+    upsertMeta('name', 'twitter:title', routeMeta.title);
+    upsertMeta('name', 'twitter:description', SEO_DESCRIPTION);
+    upsertMeta('name', 'twitter:image', SEO_OG_IMAGE);
+
+    let canonical = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', canonicalUrl);
+
+    let ldScript = document.head.querySelector(
+      'script[type="application/ld+json"]',
+    ) as HTMLScriptElement | null;
+    if (!ldScript) {
+      ldScript = document.createElement('script');
+      ldScript.type = 'application/ld+json';
+      document.head.appendChild(ldScript);
+    }
+    ldScript.text = JSON.stringify(SEO_JSON_LD);
+  }, [activeRoute]);
 
   const [iso, setIso] = useState(400);
   const [filmStockId, setFilmStockId] = useState<string | undefined>('portra-400');
@@ -256,7 +481,7 @@ export default function App() {
     prioritizeHandheld,
   ]);
 
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: C.paper }} />;
+  if (!fontsLoaded && Platform.OS !== 'web') return <View style={{ flex: 1, backgroundColor: C.paper }} />;
 
   const selectBrand = (id: string) => {
     setBrandId(id);
@@ -315,31 +540,50 @@ export default function App() {
     <SafeAreaView style={styles.root}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={[styles.scroll, compact && { padding: 8 }]}>
-        <View style={[styles.page, compact && { padding: 12 }]}>
+        <View style={[styles.page, compact && { padding: 12 }]} role="main">
           {/* Masthead */}
           <View style={[styles.stripes, compact && { marginHorizontal: -12, marginTop: -12, marginBottom: 10 }]}>
             {[C.mustard, C.orange, C.brown, C.teal].map((c) => <View key={c} style={[styles.stripe, { backgroundColor: c }]} />)}
           </View>
-          <View style={[styles.masthead, compact && { paddingBottom: 8, marginBottom: 4 }]}>
+          <View style={[styles.masthead, compact && { paddingBottom: 8, marginBottom: 4 }]} role="banner">
             <Text style={styles.kicker}>THE 35MM ANALOG PHOTOGRAPHER&apos;S POCKET GUIDE · NO. 16</Text>
-            <Text style={[styles.title, compact && { fontSize: 58, lineHeight: 60 }]} accessibilityRole="header">
-              SUNNY 16
+            <Text
+              style={[styles.title, compact && { fontSize: 58, lineHeight: 60 }]}
+              accessibilityRole="header"
+              aria-level={activeRoute === 'calculator' ? 1 : 2}
+              onPress={() => navigateToRoute('calculator')}
+            >
+              SUNNY 16{'\n'}
+              <Text style={styles.h1Sub}>
+                SUNNY 16 RULE EXPOSURE &amp; DEPTH OF FIELD CALCULATOR
+              </Text>
             </Text>
             <Text style={[styles.tagline, compact && { fontSize: 13 }]}>
               &quot;Set shutter speed closest to the 35mm film speed&quot;
             </Text>
           </View>
 
-          {/* UX #1: Collapsible Active Rig / Gear Locker Summary Bar */}
+          {activeRoute !== 'calculator' ? (
+            <InstitutionalPageView
+              route={activeRoute}
+              onNavigate={navigateToRoute}
+            />
+          ) : (
+            <>
+              {/* UX #1: Collapsible Active Rig / Gear Locker Summary Bar */}
           {camera && lens && (
-            <View style={styles.rigLockerBar} nativeID="rig-locker-bar">
+            <View style={styles.rigLockerBar} nativeID="rig-locker-bar" role="region" aria-label="Active Camera, Lens and Film Setup">
               <View style={styles.rigLockerTopRow}>
                 <View style={styles.rigLockerTitleGroup}>
                   <View style={styles.rigBadgeIcon}>
                     <CameraSvgIcon size={18} color={C.mustard} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.rigLockerTitle}>
+                    <Text
+                      style={styles.rigLockerTitle}
+                      accessibilityRole="header"
+                      aria-level={2}
+                    >
                       ACTIVE CAMERA, LENS & FILM SETUP (STEPS 1–4)
                     </Text>
                     <Text style={styles.rigLockerSub}>
@@ -351,6 +595,12 @@ export default function App() {
                 </View>
                 <Pressable
                   nativeID="btn-toggle-gear-locker"
+                  accessibilityRole="button"
+                  aria-label={
+                    gearCollapsed
+                      ? 'Expand Steps 1 to 4 to change camera, lens, or film'
+                      : 'Collapse Steps 1 to 4 and focus on exposure table'
+                  }
                   onPress={() => setGearCollapsed((v) => !v)}
                   style={[
                     styles.rigCollapseBtn,
@@ -378,6 +628,8 @@ export default function App() {
               <View style={styles.rigCardsRow}>
                 <Pressable
                   nativeID="rig-card-film"
+                  accessibilityRole="button"
+                  aria-label={`Step 1 Film Stock: ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}. Tap to change film`}
                   onPress={() => setGearCollapsed(false)}
                   style={styles.rigSummaryCard}
                 >
@@ -395,6 +647,8 @@ export default function App() {
 
                 <Pressable
                   nativeID="rig-card-camera"
+                  accessibilityRole="button"
+                  aria-label={`Steps 2 and 3 Camera Body: ${activeBrandName} ${camera.name}. Tap to change camera`}
                   onPress={() => setGearCollapsed(false)}
                   style={styles.rigSummaryCard}
                 >
@@ -412,6 +666,8 @@ export default function App() {
 
                 <Pressable
                   nativeID="rig-card-lens"
+                  accessibilityRole="button"
+                  aria-label={`Step 4 Mounted Lens: ${lens.name}. Tap to change lens`}
                   onPress={() => setGearCollapsed(false)}
                   style={styles.rigSummaryCard}
                 >
@@ -457,13 +713,19 @@ export default function App() {
               <View style={styles.filmStockBox} nativeID="film-stock-presets">
                 <Pressable
                   nativeID="btn-toggle-film-drawer"
+                  accessibilityRole="button"
+                  aria-label="Toggle 35mm film emulsion, latitude and reciprocity selector"
                   onPress={() => setFilmDrawerOpen((v) => !v)}
                   style={styles.foldableDrawerHeader}
                 >
                   <View style={styles.foldableHeaderLeft}>
                     <FilmStripSvgIcon size={15} color={C.ink} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.foldableHeaderTitle}>
+                      <Text
+                        style={styles.foldableHeaderTitle}
+                        accessibilityRole="header"
+                        aria-level={3}
+                      >
                         OPTIONAL FINE-TUNING: 35MM FILM EMULSION, LATITUDE & RECIPROCITY GUIDE
                       </Text>
                       <Text style={styles.foldableHeaderSub}>
@@ -490,6 +752,8 @@ export default function App() {
                     <View style={styles.chipRow}>
                       <Pressable
                         nativeID="stock-generic"
+                        accessibilityRole="button"
+                        aria-label={`Select Generic ISO ${iso} standard curve`}
                         onPress={() => setFilmStockId(undefined)}
                         style={[styles.stockPill, !activeFilmStock && styles.stockPillActive]}
                       >
@@ -506,6 +770,8 @@ export default function App() {
                           <Pressable
                             key={stock.id}
                             nativeID={`stock-${stock.id}`}
+                            accessibilityRole="button"
+                            aria-label={`Load ${stock.name} (ISO ${stock.iso})`}
                             onPress={() => {
                               setIso(stock.iso);
                               setFilmStockId(stock.id);
@@ -565,10 +831,16 @@ export default function App() {
               </Section>
 
               {/* UX #2: Step 3 with Decade Filter Pills & Quick Search */}
-              <View style={styles.section}>
+              <View style={styles.section} role="region" aria-label={`Step 3: Camera Model (${activeBrandName})`}>
                 <View style={styles.sectionHead}>
                   <View style={styles.stepBadge}><Text style={styles.stepText}>3</Text></View>
-                  <Text style={styles.sectionTitle}>Camera Model ({activeBrandName})</Text>
+                  <Text
+                    style={styles.sectionTitle}
+                    accessibilityRole="header"
+                    aria-level={2}
+                  >
+                    Camera Model ({activeBrandName})
+                  </Text>
                   <View style={styles.rule} />
                 </View>
                 {brandCameras.length > 6 && (
@@ -586,6 +858,8 @@ export default function App() {
                           <Pressable
                             key={dec.id}
                             nativeID={`decade-${dec.id}`}
+                            accessibilityRole="button"
+                            aria-label={`Filter ${activeBrandName} cameras by decade: ${dec.label}`}
                             onPress={() => setCameraDecade(dec.id)}
                             style={[styles.decadePill, active && styles.decadePillActive]}
                           >
@@ -599,6 +873,7 @@ export default function App() {
                     <View style={styles.searchBoxWrap}>
                       <TextInput
                         nativeID="camera-search-input"
+                        aria-label={`Search ${activeBrandName} camera model or year`}
                         value={cameraSearch}
                         onChangeText={setCameraSearch}
                         placeholder={`Search ${activeBrandName} model or year...`}
@@ -608,6 +883,8 @@ export default function App() {
                       {cameraSearch.length > 0 && (
                         <Pressable
                           nativeID="clear-camera-search"
+                          accessibilityRole="button"
+                          aria-label="Clear camera search"
                           onPress={() => setCameraSearch('')}
                           style={styles.searchClearBtn}
                         >
@@ -753,13 +1030,21 @@ export default function App() {
 
           {/* Exposure table */}
           {camera && lens && (
-            <View style={styles.tableWrap}>
+            <View style={styles.tableWrap} role="region" aria-label="Exposure Table and Lighting Conditions">
               <View style={styles.tableHeader}>
-                <Text style={styles.tableHeaderText}>EXPOSURE TABLE</Text>
+                <Text
+                  style={styles.tableHeaderText}
+                  accessibilityRole="header"
+                  aria-level={2}
+                >
+                  EXPOSURE TABLE
+                </Text>
                 <View style={styles.headerBadges}>
                   {lightConditionedAperture !== undefined && (
                     <Pressable
                       nativeID="reset-aperture-lock"
+                      accessibilityRole="button"
+                      aria-label={`Remove Depth of Field lock at ${formatAperture(lightConditionedAperture)}`}
                       onPress={() => setPreferredAperture(undefined)}
                       style={[styles.isoBox, { backgroundColor: C.mustard }]}
                     >
@@ -771,6 +1056,8 @@ export default function App() {
                   {lightDirId !== 'front' && (
                     <Pressable
                       nativeID="reset-light-dir"
+                      accessibilityRole="button"
+                      aria-label={`Reset light direction from ${activeLightDir.shortName} to Frontlit`}
                       onPress={() => setLightDirId('front')}
                       style={[styles.isoBox, { backgroundColor: C.mustard }]}
                     >
@@ -789,6 +1076,8 @@ export default function App() {
                   {activeFilter.hasFilters && (
                     <Pressable
                       nativeID="reset-filter-stack"
+                      accessibilityRole="button"
+                      aria-label={`Remove active lens filter ${activeFilter.shortName}`}
                       onPress={clearAllFilters}
                       style={[styles.isoBox, { backgroundColor: activeFilter.color }]}
                     >
@@ -819,7 +1108,10 @@ export default function App() {
               {/* Subject Light Direction & Scene / Handheld Toolbar */}
               <View style={styles.fieldToolbar} nativeID="field-toolbar">
                 <View style={styles.toolbarGroup}>
-                  <Text style={styles.toolbarLabel}>
+                  <Text
+                    style={styles.toolbarLabel}
+                    accessibilityRole={'label' as any}
+                  >
                     SUBJECT LIGHT DIRECTION (OPENS APERTURE / SHUTTER WHEN SUN IS AT SIDE OR BEHIND SUBJECT):
                   </Text>
                   <View style={styles.toolbarRow}>
@@ -829,6 +1121,8 @@ export default function App() {
                         <Pressable
                           key={dir.id}
                           nativeID={`light-dir-${dir.id}`}
+                          accessibilityRole="button"
+                          aria-label={`${dir.name} (${dir.badge})`}
                           onPress={() => setLightDirId(dir.id)}
                           style={[styles.dirPill, active && styles.dirPillActive]}
                         >
@@ -845,7 +1139,10 @@ export default function App() {
                 </View>
 
                 <View style={styles.toolbarGroup}>
-                  <Text style={styles.toolbarLabel}>
+                  <Text
+                    style={styles.toolbarLabel}
+                    accessibilityRole={'label' as any}
+                  >
                     LIGHTING SCENES TO DISPLAY & HANDHELD ANTI-SHAKE SHUTTER PRIORITY (1/FOCAL LENGTH RULE):
                   </Text>
                   <View style={styles.toolbarRow}>
@@ -871,6 +1168,8 @@ export default function App() {
                         <Pressable
                           key={tab.id}
                           nativeID={`scene-tab-${tab.id}`}
+                          accessibilityRole="button"
+                          aria-label={`${tab.label}: ${tab.sub}`}
                           onPress={() => {
                             setSceneCategory(tab.id);
                             if (tab.id !== 'all' && activeCondition.category !== tab.id) {
@@ -891,6 +1190,8 @@ export default function App() {
                     })}
                     <Pressable
                       nativeID="toggle-handheld-guard"
+                      accessibilityRole="button"
+                      aria-label={`Toggle 1 over focal length handheld priority guard, currently ${prioritizeHandheld ? 'on' : 'off'}`}
                       onPress={() => setPrioritizeHandheld((v) => !v)}
                       style={[
                         styles.handheldTogglePill,
@@ -954,20 +1255,32 @@ export default function App() {
                       <Text style={styles.viewfinderKicker}>
                         SELECTED LIGHTING SCENE · TAP ANY WEATHER CARD BELOW TO CHANGE
                       </Text>
-                      <Text style={styles.viewfinderSceneTitle}>{activeCondition.title.toUpperCase()}</Text>
+                      <Text
+                        style={styles.viewfinderSceneTitle}
+                        accessibilityRole="header"
+                        aria-level={3}
+                      >
+                        {activeCondition.title.toUpperCase()}
+                      </Text>
                       <Text style={styles.viewfinderSceneSub} numberOfLines={1}>
                         {activeCondition.hint}
                       </Text>
                     </View>
                     {heroBest ? (
                       <View style={styles.viewfinderDialsRow}>
-                        <View style={styles.viewfinderDialBox}>
+                        <View
+                          style={styles.viewfinderDialBox}
+                          aria-label={`Recommended aperture: ${formatAperture(heroBest.aperture)}`}
+                        >
                           <Text style={styles.viewfinderDialLabel}>SET APERTURE</Text>
                           <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
                             {formatAperture(heroBest.aperture)}
                           </Text>
                         </View>
-                        <View style={[styles.viewfinderDialBox, { backgroundColor: C.orange }]}>
+                        <View
+                          style={[styles.viewfinderDialBox, { backgroundColor: C.orange }]}
+                          aria-label={`Recommended shutter speed: ${formatShutter(heroBest.shutter)}`}
+                        >
                           <Text style={styles.viewfinderDialLabel}>SET SHUTTER</Text>
                           <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
                             {formatShutter(heroBest.shutter)}
@@ -1038,6 +1351,8 @@ export default function App() {
                       <Pressable
                         key={cond.id}
                         nativeID={`condition-${cond.id}`}
+                        accessibilityRole="button"
+                        aria-label={`${cond.title} (${cond.hint})${cellBest ? `: ${formatAperture(cellBest.aperture)} at ${formatShutter(cellBest.shutter)}` : ''}`}
                         onPress={() => setConditionId(cond.id)}
                         style={[
                           styles.cell,
@@ -1099,9 +1414,32 @@ export default function App() {
             </View>
           )}
 
-          <Text style={styles.footer}>
-            Rule of thumb only — trust your eyes, and bracket when in doubt. Printed in the spirit of 1968.
-          </Text>
+              {/* AdSense Slot 1: Placed safely below the interactive calculator (Zero CLS) */}
+              <AdSenseSlot
+                slotName="ADSENSE SLOT 1: BELOW CALCULATOR"
+                commentMarker="ADSENSE SLOT 1: BELOW CALCULATOR"
+                consentStatus={cookieConsent}
+              />
+
+              {/* PART 2: Editorial Content ("THE ANALOG FIELD MANUAL") */}
+              <AnalogFieldManual wide={wide} consentStatus={cookieConsent} />
+            </>
+          )}
+
+          {/* PART 3: GDPR / AdSense Cookie Consent Banner */}
+          <CookieConsentBanner
+            visible={showCookieBanner}
+            onAcceptAll={() => updateCookieConsent('accepted_all')}
+            onEssentialOnly={() => updateCookieConsent('essential_only')}
+            onNavigatePrivacy={() => navigateToRoute('privacy-policy')}
+          />
+
+          {/* PART 3: Retro Institutional Footer Navigation */}
+          <RetroFooterNav
+            activeRoute={activeRoute}
+            onNavigate={navigateToRoute}
+            onOpenCookieSettings={() => setShowCookieBanner(true)}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1183,8 +1521,17 @@ export default function App() {
     };
 
     return (
-      <View style={[styles.result, compact && { padding: 12 }]} nativeID="result-panel">
-        <Text style={styles.resultKicker}>
+      <View
+        style={[styles.result, compact && { padding: 12 }]}
+        nativeID="result-panel"
+        role="region"
+        aria-label="Recommended Exposure Settings and Equivalent Exposures"
+      >
+        <Text
+          style={styles.resultKicker}
+          accessibilityRole="header"
+          aria-level={2}
+        >
           RECOMMENDED SETTING · {cond.title.toUpperCase()}
           {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
           {activeFilter.hasFilters ? ` · ${activeFilter.shortName} (${activeFilter.factorLabel})` : ''}
@@ -1196,13 +1543,19 @@ export default function App() {
         {bestDisplay ? (
           <>
             <View style={styles.bigRow}>
-              <View style={styles.bigBox}>
+              <View
+                style={styles.bigBox}
+                aria-label={`Recommended Aperture: ${formatAperture(bestDisplay.aperture)}`}
+              >
                 <Text style={styles.bigLabel}>APERTURE</Text>
                 <Text style={[styles.bigValue, compact && { fontSize: 48, lineHeight: 52 }]}>
                   {formatAperture(bestDisplay.aperture)}
                 </Text>
               </View>
-              <View style={[styles.bigBox, { backgroundColor: C.orange }]}>
+              <View
+                style={[styles.bigBox, { backgroundColor: C.orange }]}
+                aria-label={`Recommended Shutter Speed: ${formatShutter(bestDisplay.shutter)}`}
+              >
                 <Text style={styles.bigLabel}>SHUTTER</Text>
                 <Text style={[styles.bigValue, compact && { fontSize: 48, lineHeight: 52 }]}>
                   {formatShutter(bestDisplay.shutter)}
@@ -1300,7 +1653,11 @@ export default function App() {
             {/* Equivalent Exposures immediately below the primary readout */}
             {r.alternatives.length > 0 && (
               <>
-                <Text style={styles.altTitle}>
+                <Text
+                  style={styles.altTitle}
+                  accessibilityRole="header"
+                  aria-level={3}
+                >
                   EQUIVALENT EXPOSURES{' '}
                   {activeFilter.hasFilters ? `· WITH ${activeFilter.shortName} (${activeFilter.factorLabel})` : ''}
                 </Text>
@@ -1314,6 +1671,8 @@ export default function App() {
                       <Pressable
                         key={`${a.aperture}-${a.shutter}`}
                         nativeID={`eq-chip-${a.aperture}`}
+                        accessibilityRole="button"
+                        aria-label={`Equivalent exposure ${formatAperture(a.aperture)} at ${formatShutter(a.shutter)} (${dofLabel(a.aperture)})`}
                         onPress={() => setPreferredAperture(a.aperture)}
                         style={[
                           styles.altChip,
@@ -1742,8 +2101,12 @@ export default function App() {
 
             {/* TAB 2: Progressive 3-Step Lens Filter Stacker (Nothing below when NONE is selected; no extra options below Step 2 or Step 3) */}
             {(activeDetailTab === 'filters' || activeDetailTab === 'all') && (
-              <View style={styles.filterSection} nativeID="filter-compare-section">
-                <Text style={styles.altTitle}>
+              <View style={styles.filterSection} nativeID="filter-compare-section" role="region" aria-label="35mm Screw-In Lens Filter Stacker">
+                <Text
+                  style={styles.altTitle}
+                  accessibilityRole="header"
+                  aria-level={2}
+                >
                   35MM SCREW-IN LENS FILTER STACKER · CPL / B&W / ND / WARMING
                 </Text>
                 <Text style={styles.altHint}>
@@ -1751,7 +2114,11 @@ export default function App() {
                 </Text>
 
                 {/* STEP 1: Primary Base Filter Row */}
-                <Text style={[styles.quickTweakLabel, { marginTop: 8 }]}>
+                <Text
+                  style={[styles.quickTweakLabel, { marginTop: 8 }]}
+                  accessibilityRole="header"
+                  aria-level={3}
+                >
                   STEP 1 · SELECT PRIMARY LENS FILTER:
                 </Text>
                 <View style={styles.filterPillRow}>
@@ -2020,9 +2387,13 @@ export default function App() {
 
             {/* TAB 3: Gritty / Street Style Section */}
             {(activeDetailTab === 'grit' || activeDetailTab === 'all') && (
-              <View style={styles.grittySection} nativeID="gritty-section">
+              <View style={styles.grittySection} nativeID="gritty-section" role="region" aria-label="Gritty and Street Style Exposure and Darkroom Tweaks">
                 <View style={styles.grittyHeaderRow}>
-                  <Text style={styles.altTitle}>
+                  <Text
+                    style={styles.altTitle}
+                    accessibilityRole="header"
+                    aria-level={2}
+                  >
                     GRITTY / STREET STYLE · EXPOSURE & DARKROOM TWEAKS
                   </Text>
                   <View style={styles.grittyGrainBadge}>
@@ -2163,8 +2534,12 @@ export default function App() {
 
             {/* TAB 4: Loaded Film Field Guide & Shooting Tips (for the film selected in Step 1) */}
             {(activeDetailTab === 'film' || activeDetailTab === 'all') && (
-              <View style={styles.filterSection} nativeID="film-guide-tab">
-                <Text style={styles.altTitle}>
+              <View style={styles.filterSection} nativeID="film-guide-tab" role="region" aria-label="Loaded 35mm Film Field Guide and Shooting Tips">
+                <Text
+                  style={styles.altTitle}
+                  accessibilityRole="header"
+                  aria-level={2}
+                >
                   LOADED 35MM FILM FIELD GUIDE ·{' '}
                   {activeFilmStock ? activeFilmStock.name.toUpperCase() : `GENERIC ISO ${iso} EMULSION`}
                 </Text>
@@ -3328,5 +3703,110 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: C.paper,
+  },
+
+  // --- SEO SEMANTIC H1 SUBTITLE & COLLAPSIBLE FIELD GUIDE / FAQ ---
+  h1Sub: {
+    fontFamily: display,
+    fontSize: 16,
+    lineHeight: 20,
+    color: C.brown,
+    letterSpacing: 2,
+  },
+  seoGuideSection: {
+    marginTop: 20,
+    borderWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.paperDark,
+    padding: 12,
+  },
+  seoGuideHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  seoGuideTitle: {
+    fontFamily: display,
+    fontSize: 20,
+    color: C.ink,
+    letterSpacing: 1.5,
+  },
+  seoGuideSub: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.brown,
+    marginTop: 2,
+  },
+  seoGuideBody: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1.5,
+    borderColor: C.ink,
+    gap: 12,
+  },
+  seoGuideBodyCollapsed: {
+    maxHeight: 0,
+    overflow: 'hidden',
+    marginTop: 0,
+    paddingTop: 0,
+    borderTopWidth: 0,
+    opacity: 0,
+  },
+  seoColumnsRow: {
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  seoCard: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    padding: 12,
+    gap: 6,
+  },
+  seoCardTitle: {
+    fontFamily: display,
+    fontSize: 17,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+  seoCardText: {
+    fontFamily: type,
+    fontSize: 11,
+    lineHeight: 17,
+    color: C.ink,
+  },
+  seoFaqWrap: {
+    borderTopWidth: 1.5,
+    borderColor: C.ink,
+    paddingTop: 10,
+    gap: 8,
+  },
+  seoFaqHeading: {
+    fontFamily: display,
+    fontSize: 18,
+    color: C.ink,
+    letterSpacing: 1.2,
+  },
+  seoFaqItem: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    padding: 10,
+    gap: 4,
+  },
+  seoFaqQ: {
+    fontFamily: display,
+    fontSize: 16,
+    color: C.orange,
+    letterSpacing: 0.8,
+  },
+  seoFaqA: {
+    fontFamily: type,
+    fontSize: 11,
+    lineHeight: 16,
+    color: C.ink,
   },
 });

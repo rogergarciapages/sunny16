@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "sunny16",
+    "name": "Sunny 16 Rule Calculator & Analog Light Meter",
     "slug": "sunny16",
     "version": "1.0.0",
+    "description": "Calculate accurate exposure settings, shutter speed, and depth of field for your film camera without a light meter. Free pocket guide for analog photography.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,7 +20,13 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Sunny 16 Rule Calculator & Analog Light Meter",
+      "shortName": "Sunny 16",
+      "description": "Calculate accurate exposure settings, shutter speed, and depth of field for your film camera without a light meter. Free pocket guide for analog photography.",
+      "lang": "en",
+      "themeColor": "#F3EAD3",
+      "backgroundColor": "#F3EAD3"
     },
     "plugins": [
       "expo-font"
