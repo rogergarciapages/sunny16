@@ -1,6 +1,5 @@
 # ☀️ SUNNY 16 — The Analog Photographer's Pocket Guide · No. 16
 
-<img width="1024" height="1024" alt="image_6c0c2dd6" src="https://github.com/user-attachments/assets/4e5df8d4-7032-43ac-92c2-cbf956a93781" />
 <img width="1376" height="768" alt="image_f7298b81" src="https://github.com/user-attachments/assets/300c8644-172a-4380-964b-9539fc4d1cf1" />
 
 
