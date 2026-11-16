@@ -49,6 +49,7 @@ import {
   AdSenseSlot,
   AnalogFieldManual,
   InstitutionalPageView,
+  RetroHeaderNav,
   RetroFooterNav,
   CookieConsentBanner,
 } from './components/EditorialAndCompliance';
@@ -70,35 +71,52 @@ const SEO_URL = 'https://sunny16rule.com';
 const SEO_OG_IMAGE = 'https://sunny16rule.com/og-preview.png';
 const COOKIE_STORAGE_KEY = 'sunny16_cookie_consent_v1';
 
-const ROUTE_META: Record<AppRoute, { title: string; path: string }> = {
+const ROUTE_META: Record<
+  AppRoute,
+  { title: string; description: string; path: string; h1: string }
+> = {
   calculator: {
     title: SEO_TITLE,
+    description: SEO_DESCRIPTION,
     path: '/',
+    h1: 'Sunny 16 Rule Exposure & Depth of Field Calculator',
   },
   about: {
-    title: 'About Sunny 16 Rule · 35mm Analog Photography Exposure Calculator',
+    title: 'About Sunny 16 Rule | Analog Photography Field Guide',
+    description:
+      'Learn how Sunny 16 Rule helps film photographers calculate accurate exposure, filter factors, and depth of field without a light meter.',
     path: '/about',
+    h1: 'About the Sunny 16 Rule Field Guide',
   },
   'privacy-policy': {
-    title: 'Privacy Policy & Cookie Disclosure · Sunny 16 Rule',
+    title: 'Privacy Policy | Sunny 16 Rule',
+    description:
+      'Read the Privacy Policy for Sunny 16 Rule (sunny16rule.com), including information on cookies, analytics, GDPR rights, and Google AdSense advertising.',
     path: '/privacy-policy',
+    h1: 'Privacy Policy',
   },
   terms: {
-    title: 'Terms of Service & Optical Disclaimer · Sunny 16 Rule',
+    title: 'Terms of Service | Sunny 16 Rule',
+    description:
+      'Terms of Service and optical calculation disclaimer for using the Sunny 16 Rule analog photography calculator and field guide.',
     path: '/terms',
+    h1: 'Terms of Service',
   },
   contact: {
-    title: 'Contact & 35mm Gear Database Requests · Sunny 16 Rule',
+    title: 'Contact Us | Sunny 16 Rule',
+    description:
+      'Get in touch with Sunny 16 Rule for feedback, bug reports, or to request new vintage cameras, lenses, and film stocks in our database.',
     path: '/contact',
+    h1: 'Contact & Gear Requests',
   },
 };
 
 function parsePathnameToRoute(pathname: string): AppRoute {
   const clean = pathname.replace(/\/+$/, '').toLowerCase();
-  if (clean === '/about') return 'about';
-  if (clean === '/privacy-policy') return 'privacy-policy';
-  if (clean === '/terms') return 'terms';
-  if (clean === '/contact') return 'contact';
+  if (clean === '/about' || clean === '/about.html') return 'about';
+  if (clean === '/privacy-policy' || clean === '/privacy-policy.html') return 'privacy-policy';
+  if (clean === '/terms' || clean === '/terms.html') return 'terms';
+  if (clean === '/contact' || clean === '/contact.html') return 'contact';
   return 'calculator';
 }
 
@@ -282,17 +300,17 @@ export default function App() {
       el.setAttribute('content', content);
     };
 
-    upsertMeta('name', 'description', SEO_DESCRIPTION);
+    upsertMeta('name', 'description', routeMeta.description);
     upsertMeta('name', 'robots', 'index, follow, max-image-preview:large');
     upsertMeta('property', 'og:type', 'website');
     upsertMeta('property', 'og:url', canonicalUrl);
     upsertMeta('property', 'og:title', routeMeta.title);
-    upsertMeta('property', 'og:description', SEO_DESCRIPTION);
+    upsertMeta('property', 'og:description', routeMeta.description);
     upsertMeta('property', 'og:image', SEO_OG_IMAGE);
     upsertMeta('name', 'twitter:card', 'summary_large_image');
     upsertMeta('name', 'twitter:url', canonicalUrl);
     upsertMeta('name', 'twitter:title', routeMeta.title);
-    upsertMeta('name', 'twitter:description', SEO_DESCRIPTION);
+    upsertMeta('name', 'twitter:description', routeMeta.description);
     upsertMeta('name', 'twitter:image', SEO_OG_IMAGE);
 
     let canonical = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
@@ -562,6 +580,12 @@ export default function App() {
               &quot;Set shutter speed closest to the 35mm film speed&quot;
             </Text>
           </View>
+
+          {/* Global Header Navigation connecting all 5 routes */}
+          <RetroHeaderNav
+            activeRoute={activeRoute}
+            onNavigate={navigateToRoute}
+          />
 
           {activeRoute !== 'calculator' ? (
             <InstitutionalPageView

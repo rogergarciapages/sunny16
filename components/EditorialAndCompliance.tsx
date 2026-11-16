@@ -25,6 +25,49 @@ export const C = {
 const display = 'BebasNeue_400Regular';
 const type = 'SpecialElite_400Regular';
 
+/**
+ * Global Retro-Styled Navigation Header connecting all 5 routes across the entire site.
+ */
+export function RetroHeaderNav({
+  activeRoute,
+  onNavigate,
+}: {
+  activeRoute: AppRoute;
+  onNavigate: (route: AppRoute) => void;
+}) {
+  const navItems: { id: AppRoute; label: string; href: string }[] = [
+    { id: 'calculator', label: 'CALCULATOR', href: '/' },
+    { id: 'about', label: 'ABOUT GUIDE', href: '/about' },
+    { id: 'privacy-policy', label: 'PRIVACY POLICY', href: '/privacy-policy' },
+    { id: 'terms', label: 'TERMS OF SERVICE', href: '/terms' },
+    { id: 'contact', label: 'CONTACT & GEAR', href: '/contact' },
+  ];
+
+  return (
+    <View style={styles.headerNavWrap} role="navigation" aria-label="Global Site Navigation">
+      <View style={styles.headerNavRow}>
+        {navItems.map((item) => {
+          const active = activeRoute === item.id;
+          return (
+            <Pressable
+              key={item.id}
+              nativeID={`header-nav-${item.id}`}
+              accessibilityRole="button"
+              aria-label={`Navigate to ${item.label}`}
+              onPress={() => onNavigate(item.id)}
+              style={[styles.headerNavPill, active && styles.headerNavPillActive]}
+            >
+              <Text style={[styles.headerNavText, active && { color: C.paper }]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export interface FaqItem {
   question: string;
   answer: string;
@@ -609,14 +652,39 @@ export function InstitutionalPageView({
 }) {
   const [senderName, setSenderName] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
-  const [messageTopic, setMessageTopic] = useState('Camera / Lens Database Request');
+  const [messageTopic, setMessageTopic] = useState<'Gear Request' | 'Bug Report' | 'General Feedback'>('Gear Request');
   const [messageBody, setMessageBody] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [submittedNotice, setSubmittedNotice] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+
+  const handleCopyEmail = () => {
+    const email = 'contact@sunny16rule.com';
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(email);
+    }
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 3000);
+  };
 
   const handleContactSubmit = () => {
+    setValidationError(null);
+    if (!senderName.trim()) {
+      setValidationError('Please enter your name or photographer handle.');
+      return;
+    }
+    if (!senderEmail.trim() || !senderEmail.includes('@') || !senderEmail.includes('.')) {
+      setValidationError('Please enter a valid email address so we can reply.');
+      return;
+    }
+    if (!messageBody.trim() || messageBody.trim().length < 8) {
+      setValidationError('Please provide a message or camera/lens specifications (at least 8 characters).');
+      return;
+    }
+
     const subject = encodeURIComponent(`[Sunny 16 Field Guide] ${messageTopic}`);
     const body = encodeURIComponent(
-      `Name: ${senderName || 'Analog Photographer'}\nEmail: ${senderEmail || 'Not provided'}\nTopic: ${messageTopic}\n\nMessage:\n${messageBody}`,
+      `Name: ${senderName.trim()}\nEmail: ${senderEmail.trim()}\nTopic: ${messageTopic}\n\nMessage:\n${messageBody.trim()}`,
     );
     Linking.openURL(`mailto:contact@sunny16rule.com?subject=${subject}&body=${body}`);
     setSubmittedNotice(true);
@@ -644,7 +712,7 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={1}
           >
-            ABOUT SUNNY 16 RULE (SUNNY16RULE.COM)
+            About the Sunny 16 Rule Field Guide
           </Text>
           <Text style={styles.instSubtitle}>
             A Free Optical Pocket Guide &amp; Exposure Calculator for 35mm Analog Film Photographers
@@ -655,10 +723,10 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={2}
           >
-            OUR MISSION: KEEPING MECHANICAL 35MM CAMERAS SHOOTING
+            THE MISSION: A CLASSIC FIELD COMPANION IN THE DIGITAL ERA
           </Text>
           <Text style={styles.manualBodyText}>
-            <Text style={styles.manualBold}>Sunny 16 Rule (sunny16rule.com)</Text> was built by analog photographers and optical engineers to give 35mm film shooters an instant, reliable, field-ready exposure and depth-of-field reference. Millions of classic mechanical 35mm SLRs and rangefinders—such as the <Text style={styles.manualBold}>Nikon F and FM2, Leica M2/M3/M4, Canon F-1 and FTb, Pentax Spotmatic and K1000, Olympus OM-1, Contax S2, and Minolta SR-T 101</Text>—operate with 100% mechanical clockwork shutters that never require batteries, yet their vintage CdS or selenium light meters have either drifted out of calibration or rely on discontinued 1.35V mercury cells.
+            <Text style={styles.manualBold}>Sunny 16 Rule (https://sunny16rule.com)</Text> was created to give analog photographers an authentic, fast, reliable, battery-free exposure and depth-of-field field guide inspired by classic 1960s and 1970s Kodak Master Photoguides and Ilford exposure calculators. As mechanical cameras continue to outlive their original light meters and mercury batteries, sunny16rule.com provides the knowledge needed to shoot confidently without relying on electronics or secondary smartphone light meters.
           </Text>
 
           <Text
@@ -666,13 +734,25 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={2}
           >
-            HOW OUR OPTICAL &amp; EXPOSURE ENGINE WORKS
+            WHO IT IS FOR: MECHANICAL SLRS, RANGEFINDERS &amp; FAILED METERS
           </Text>
           <Text style={styles.manualBodyText}>
-            Unlike generic static charts, the Sunny 16 Rule Calculator models the real mechanical constraints of your specific 35mm camera body and mounted lens:{'\n'}
-            • <Text style={styles.manualBold}>Hardware-Matched Shutter &amp; Aperture Pools:</Text> Every camera in our catalog (spanning 1950s rangefinders with 1/500s leaf shutters to late-1990s SLRs with 1/4000s–1/8000s focal-plane shutters) is cross-referenced against your mounted lens’s actual f-stop ring so we never recommend an impossible shutter speed or aperture.{'\n'}
-            • <Text style={styles.manualBold}>True Optical Depth of Field &amp; Bokeh Math:</Text> Our Depth of Field visualizer uses exact lens equations with a <Text style={styles.manualBold}>0.029mm circle of confusion</Text> for 35mm full-frame (24×36mm) and <Text style={styles.manualBold}>0.020mm</Text> for 35mm half-frame (18×24mm) cameras, computing near/far sharpness limits, hyperfocal distance, and background blur disc ratios.{'\n'}
-            • <Text style={styles.manualBold}>Cumulative Filter Stacking &amp; Schwarzschild Reciprocity:</Text> Our engine calculates multi-ring filter stacks (CPL Polarizers, B&amp;W Yellow/Orange/Red/Green contrast filters, 85B warming filters, and ND4/ND8 neutral density filters), B&amp;W push/pull ratings, and long-exposure Schwarzschild reciprocity failure (<Text style={styles.manualBold}>≥1s Bulb</Text>) across 26 iconic 35mm film emulsions.
+            Built specifically for photographers shooting classic 35mm and medium-format mechanical cameras—such as the <Text style={styles.manualBold}>Nikon F, FM, and FM2, Leica M2, M3, and M4, Canon F-1 and FTb, Pentax Spotmatic and K1000, Olympus OM-1, Minolta SR-T 101, Yashica Mat-124G, or vintage rangefinders</Text>—where built-in selenium or CdS light meters have failed, drifted out of factory calibration, or require banned 1.35V mercury batteries. Whether you are walking city streets with a meterless Leica or shooting landscapes with a folding medium-format camera, Sunny 16 gives you direct, repeatable exposure control.
+          </Text>
+
+          <Text
+            style={styles.instHeading}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            HOW OUR OPTICAL &amp; EXPOSURE MATH WORKS
+          </Text>
+          <Text style={styles.manualBodyText}>
+            The Sunny 16 Rule Calculator is not a static cheat sheet. Our optical calculation engine combines:{'\n'}
+            • <Text style={styles.manualBold}>EV Lighting Values:</Text> Scientifically derived Exposure Values (EV 7 to EV 16 at ISO 100) mapping 10 real-world atmospheric conditions to incident light levels.{'\n'}
+            • <Text style={styles.manualBold}>ASA/ISO Reciprocal Shutter Speeds:</Text> Exact 1/ISO mathematical calibration with physical hardware-limit checks matched to each camera’s physical shutter speed dial (1s to 1/1000s, 1/4000s, or 1/8000s).{'\n'}
+            • <Text style={styles.manualBold}>Cumulative Multi-Ring Filter Factors:</Text> True logarithmic stop compensation (+0 to +6 EV) for screw-in contrast filters (Yellow #8, Orange #16, Red #25, Green #11), Circular Polarizers (CPL), 85B warming filters, and ND filters.{'\n'}
+            • <Text style={styles.manualBold}>Circle of Confusion &amp; Depth of Field:</Text> Rigorous optical formulas using a 0.029mm circle of confusion for 35mm full-frame (24×36mm) and 0.020mm for 35mm half-frame (18×24mm), calculating near limit, far limit, hyperfocal distance (H), and background blur circle ratios.
           </Text>
 
           <Text
@@ -683,8 +763,18 @@ export function InstitutionalPageView({
             DESIGNED IN THE SPIRIT OF 1968 TECHNICAL MANUALS
           </Text>
           <Text style={styles.manualBodyText}>
-            Inspired by the timeless Kodak Master Photoguide and 1960s camera instruction booklets, the interface is designed for high-contrast readability under bright outdoor sun and quick one-handed operation on mobile devices in the field.
+            Every layout, typography choice, condensed heading, and paper background was crafted to honor mid-century industrial camera manuals—clean, functional, high-contrast in direct daylight, and completely free of digital clutter.
           </Text>
+
+          <Pressable
+            nativeID="cta-return-to-calc-about"
+            accessibilityRole="button"
+            aria-label="Return to the Sunny 16 Exposure Calculator"
+            onPress={() => onNavigate('calculator')}
+            style={[styles.instBackBtn, { alignSelf: 'flex-start', marginTop: 14 }]}
+          >
+            <Text style={styles.instBackBtnText}>← OPEN SUNNY 16 EXPOSURE CALCULATOR</Text>
+          </Pressable>
         </View>
       )}
 
@@ -695,7 +785,7 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={1}
           >
-            PRIVACY POLICY &amp; COOKIE DISCLOSURE
+            Privacy Policy
           </Text>
           <Text style={styles.instSubtitle}>
             Last Updated: November 16, 2026 · Effective for https://sunny16rule.com
@@ -706,10 +796,13 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={2}
           >
-            1. OVERVIEW &amp; DATA MINIMIZATION
+            1. OVERVIEW &amp; DATA CONTROLLER
           </Text>
           <Text style={styles.manualBodyText}>
-            At <Text style={styles.manualBold}>Sunny 16 Rule (https://sunny16rule.com)</Text>, we respect your privacy. Our analog photography exposure calculator and depth-of-field visualizer run entirely in your web browser. You do not need to create an account or submit personal information to use the calculator.
+            <Text style={styles.manualBold}>Sunny 16 Rule (&quot;sunny16rule.com&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;)</Text> is committed to protecting your privacy. This Privacy Policy describes how information is collected, used, and disclosed when you access <Text style={styles.manualBold}>https://sunny16rule.com</Text>.{'\n'}
+            • <Text style={styles.manualBold}>Data Controller:</Text> Sunny 16 Rule Field Guide Operations{'\n'}
+            • <Text style={styles.manualBold}>Contact Email:</Text> contact@sunny16rule.com{'\n'}
+            • <Text style={styles.manualBold}>Official Website:</Text> https://sunny16rule.com
           </Text>
 
           <Text
@@ -717,11 +810,37 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={2}
           >
-            2. GOOGLE ADSENSE &amp; DOUBLECLICK DART ADVERTISING COOKIES
+            2. INFORMATION WE COLLECT &amp; LOCAL COMPUTATION
           </Text>
           <Text style={styles.manualBodyText}>
-            To keep this tool 100% free for the analog photography community, we may display advertisements served by third-party vendors, including <Text style={styles.manualBold}>Google AdSense</Text>:{'\n'}
-            • Third-party vendors, including Google, use cookies (such as the <Text style={styles.manualBold}>DoubleClick DART cookie</Text>) to serve ads based on a user’s prior visits to <Text style={styles.manualBold}>https://sunny16rule.com</Text> or other websites on the internet.{'\n'}
+            Our analog photography exposure calculator, depth-of-field visualizer, and film latitude tools execute entirely client-side within your web browser. You are not required to create an account, register, or provide any personal data to use our tools.{'\n'}
+            • <Text style={styles.manualBold}>Automatically Collected Technical Data:</Text> When you access our website, standard web server logs may automatically record non-personally identifiable technical information, such as your browser user-agent, operating system, device screen resolution, referring URL, and approximate geographic location (country/region level). This data is aggregated and used solely to ensure Core Web Vitals performance, security, and cross-browser compatibility.
+          </Text>
+
+          <Text
+            style={styles.instHeading}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            3. COOKIES &amp; LOCAL STORAGE
+          </Text>
+          <Text style={styles.manualBodyText}>
+            We use browser <Text style={styles.manualBold}>localStorage</Text> exclusively for essential user preferences:{'\n'}
+            • <Text style={styles.manualBold}>Preference Storage:</Text> Saving your chosen camera, lens, and film stock presets across visits so you do not have to reconfigure them each time.{'\n'}
+            • <Text style={styles.manualBold}>Cookie Consent Management:</Text> We store a record of your consent preferences under the key <Text style={styles.manualBold}>&apos;sunny16_cookie_consent_v1&apos;</Text>.{'\n'}
+            • <Text style={styles.manualBold}>Essential vs. Advertising Cookies:</Text> Essential local storage items are required for the functionality of the calculator and do not track you across other websites.
+          </Text>
+
+          <Text
+            style={styles.instHeading}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            4. THIRD-PARTY ADVERTISING &amp; GOOGLE ADSENSE
+          </Text>
+          <Text style={styles.manualBodyText}>
+            To keep this educational analog photography resource free for photographers worldwide, we partner with third-party advertising networks, including <Text style={styles.manualBold}>Google AdSense</Text>:{'\n'}
+            • Third-party vendors, including <Text style={styles.manualBold}>Google</Text>, use cookies (such as the <Text style={styles.manualBold}>DoubleClick cookie</Text>) to serve ads based on a user’s prior visits to this website or other websites on the Internet.{'\n'}
             • Google’s use of advertising cookies enables it and its partners to serve ads to our users based on their visit to our site and/or other sites on the Internet.{'\n'}
             • <Text style={styles.manualBold}>How to Opt Out of Personalized Advertising:</Text> Users may opt out of personalized advertising at any time by visiting{' '}
             <Text
@@ -737,7 +856,8 @@ export function InstitutionalPageView({
             >
               www.aboutads.info/choices
             </Text>
-            . You may also manage your consent preferences directly on our site using the <Text style={styles.manualBold}>Cookie Settings</Text> link in the footer.
+            . You may also manage your consent preferences directly on our site using the <Text style={styles.manualBold}>Cookie Settings</Text> link in the footer.{'\n'}
+            • <Text style={styles.manualBold}>Google Consent Mode v2:</Text> We implement Google Consent Mode v2. By default, ad storage and ad personalization are denied until you choose to accept cookies via our Cookie Consent banner.
           </Text>
 
           <Text
@@ -745,25 +865,14 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={2}
           >
-            3. LOCAL STORAGE, COOKIES &amp; ANALYTICS
-          </Text>
-          <Text style={styles.manualBodyText}>
-            We use browser <Text style={styles.manualBold}>localStorage</Text> to remember your cookie consent choice (<Text style={styles.manualBold}>sunny16_cookie_consent_v1</Text>) so you are not prompted repeatedly on every visit. When analytics or advertising cookies are enabled with your consent, standard non-personally-identifiable log data (browser type, device viewport, referring page, and anonymized IP address) may be processed to measure site performance and Core Web Vitals.
-          </Text>
-
-          <Text
-            style={styles.instHeading}
-            accessibilityRole="header"
-            aria-level={2}
-          >
-            4. YOUR GDPR (EEA/UK) &amp; CCPA (CALIFORNIA) PRIVACY RIGHTS
+            5. YOUR GDPR (EEA/UK) &amp; CCPA/CPRA (CALIFORNIA) PRIVACY RIGHTS
           </Text>
           <Text style={styles.manualBodyText}>
             If you reside in the European Economic Area (EEA), the United Kingdom, Switzerland, or California, you have the right to:{'\n'}
             • Withdraw or modify your cookie consent at any time via the <Text style={styles.manualBold}>Cookie Settings</Text> button in our footer.{'\n'}
             • Request access to, correction of, or deletion of any personal data you have voluntarily sent us (for example, via email support).{'\n'}
             • Opt out of the sale or sharing of personal information for cross-context behavioral advertising.{'\n'}
-            For any privacy inquiries, contact us at <Text style={styles.manualBold}>contact@sunny16rule.com</Text>.
+            For any privacy inquiries, contact our data administrator at <Text style={styles.manualBold}>contact@sunny16rule.com</Text>.
           </Text>
         </View>
       )}
@@ -775,7 +884,7 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={1}
           >
-            TERMS OF SERVICE &amp; OPTICAL DISCLAIMER
+            Terms of Service
           </Text>
           <Text style={styles.instSubtitle}>
             Last Updated: November 16, 2026 · Governing Use of https://sunny16rule.com
@@ -789,7 +898,7 @@ export function InstitutionalPageView({
             1. ACCEPTANCE OF TERMS
           </Text>
           <Text style={styles.manualBodyText}>
-            By accessing and using <Text style={styles.manualBold}>Sunny 16 Rule (https://sunny16rule.com)</Text>, you agree to these Terms of Service. This web application is provided free of charge for personal, educational, and professional photographic reference.
+            By accessing, browsing, or using <Text style={styles.manualBold}>Sunny 16 Rule (https://sunny16rule.com)</Text>, you acknowledge that you have read, understood, and agreed to be bound by these Terms of Service. If you do not agree to these terms, please do not use this website.
           </Text>
 
           <Text
@@ -797,11 +906,10 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={2}
           >
-            2. ANALOG PHOTOGRAPHY &amp; EXPOSURE APPROXIMATION DISCLAIMER
+            2. PERMITTED USE
           </Text>
           <Text style={styles.manualBodyText}>
-            All exposure values (EV), f-stop recommendations, shutter speeds, filter compensation factors, Schwarzschild long-exposure reciprocity times, and depth-of-field calculations provided by <Text style={styles.manualBold}>sunny16rule.com</Text> are <Text style={styles.manualBold}>educational field-guide approximations</Text>.{'\n'}
-            Real-world film exposure depends on many physical variables outside the scope of any calculator—including geographic latitude, season, altitude, atmospheric haze, mechanical shutter curtain wear on vintage cameras, actual lens T-stop transmission, film storage conditions, and lab development chemistry. When shooting critical or irreplaceable scenes on film, always bracket your exposures. <Text style={styles.manualBold}>Sunny 16 Rule</Text> and its creators assume no liability for underexposed, overexposed, or out-of-focus film rolls, lab processing costs, or equipment damage.
+            Sunny 16 Rule is provided free of charge for personal, educational, and professional photography field reference. You may use our calculator, exposure charts, and field guides on any web-enabled mobile phone, tablet, or desktop browser for calculating camera exposure, filter factors, and depth of field. Commercial reproduction, automated bulk scraping, or mirroring without prior written authorization is strictly prohibited.
           </Text>
 
           <Text
@@ -809,10 +917,35 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={2}
           >
-            3. TRADEMARKS &amp; CAMERA / FILM DATABASE NOMENCLATURE
+            3. PHOTOGRAPHY &amp; EXPOSURE APPROXIMATION DISCLAIMER
           </Text>
           <Text style={styles.manualBodyText}>
-            All camera brand names, model names, lens designations, and film stock names (including Nikon, Canon, Leica, Pentax, Olympus, Minolta, Contax, Fujifilm, Yashica, Rollei, Voigtländer, Kodak, Ilford, Fomapan, CineStill, Agfa, and Kentmere) are the trademarks of their respective owners and are used strictly for nominative technical compatibility and optical reference.
+            All exposure values (EV), f-stop recommendations, shutter speeds, filter compensation factors, Schwarzschild reciprocity times, and depth-of-field calculations provided by <Text style={styles.manualBold}>sunny16rule.com</Text> are <Text style={styles.manualBold}>educational field-guide approximations</Text>.{'\n'}
+            Real-world photographic exposure depends on many physical variables outside the scope of any calculator—including geographic latitude, season, altitude, atmospheric haze, mechanical shutter curtain wear on vintage cameras (which often run 1/2 to 1 stop slower after decades of use), actual lens T-stop transmission, film storage conditions, and lab development chemistry. When shooting critical or irreplaceable scenes on film, always bracket your exposures. <Text style={styles.manualBold}>Sunny 16 Rule</Text> and its creators assume no liability for underexposed, overexposed, or out-of-focus film rolls, lab processing costs, or equipment damage.
+          </Text>
+
+          <Text
+            style={styles.instHeading}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            4. INTELLECTUAL PROPERTY &amp; TRADEMARKS
+          </Text>
+          <Text style={styles.manualBodyText}>
+            The software code, visual layout, retro styling, custom color palette, typography integration, and editorial guides published on sunny16rule.com are the exclusive intellectual property of Sunny 16 Rule.{'\n'}
+            All camera brand names, model names, lens mounts, and film stock names (including Nikon, Canon, Leica, Pentax, Olympus, Minolta, Contax, Fujifilm, Yashica, Rollei, Voigtländer, Kodak, Ilford, Fomapan, CineStill, Agfa, and Kentmere) are the registered trademarks of their respective owners and are used strictly for nominative technical compatibility and educational reference.
+          </Text>
+
+          <Text
+            style={styles.instHeading}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            5. LIMITATION OF LIABILITY &amp; CHANGES TO TERMS
+          </Text>
+          <Text style={styles.manualBodyText}>
+            To the maximum extent permitted by applicable law, Sunny 16 Rule is provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis without warranties of any kind, whether express or implied. In no event shall Sunny 16 Rule, its creators, or contributors be liable for any indirect, incidental, special, or consequential damages resulting from the use of or inability to use this field guide.{'\n'}
+            We reserve the right to revise or update these Terms of Service at any time. Any changes will be posted on this page with an updated &quot;Last Updated&quot; date.
           </Text>
         </View>
       )}
@@ -824,24 +957,71 @@ export function InstitutionalPageView({
             accessibilityRole="header"
             aria-level={1}
           >
-            CONTACT &amp; GEAR DATABASE REQUESTS
+            Contact &amp; Gear Requests
           </Text>
           <Text style={styles.instSubtitle}>
             Reach the Sunny 16 Rule Team · Direct Email: contact@sunny16rule.com
           </Text>
 
           <Text style={styles.manualBodyText}>
-            Spot a missing 35mm camera body, vintage lens mount, or film emulsion? Found a bug or have feedback on our optical calculators? Send us a dispatch directly at{' '}
-            <Text
-              style={styles.inlineLink}
-              onPress={() => Linking.openURL('mailto:contact@sunny16rule.com')}
-            >
-              contact@sunny16rule.com
-            </Text>{' '}
-            or use the field form below:
+            We welcome contributions, suggestions, and corrections from the global analog photography community. You can reach out directly to:
+          </Text>
+
+          {/* Contact Direct Action Box */}
+          <View style={styles.directContactBox}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.directContactKicker}>PRIMARY INBOX</Text>
+              <Text style={styles.directContactEmail}>contact@sunny16rule.com</Text>
+              <Text style={styles.directContactSub}>
+                Feel free to email us directly from your preferred email client or use the form below.
+              </Text>
+            </View>
+            <View style={styles.directContactBtnRow}>
+              <Pressable
+                nativeID="btn-copy-email"
+                accessibilityRole="button"
+                aria-label="Copy contact email address to clipboard"
+                onPress={handleCopyEmail}
+                style={styles.directContactBtn}
+              >
+                <Text style={styles.directContactBtnText}>
+                  {copiedEmail ? '✓ COPIED TO CLIPBOARD!' : '📋 COPY EMAIL ADDRESS'}
+                </Text>
+              </Pressable>
+              <Pressable
+                nativeID="btn-open-email-client"
+                accessibilityRole="button"
+                aria-label="Open default email application addressed to contact@sunny16rule.com"
+                onPress={() => Linking.openURL('mailto:contact@sunny16rule.com?subject=[Sunny%2016%20Field%20Guide]%20Inquiry')}
+                style={[styles.directContactBtn, { backgroundColor: C.teal, borderColor: C.ink }]}
+              >
+                <Text style={[styles.directContactBtnText, { color: C.paper }]}>
+                  ✉ OPEN IN EMAIL CLIENT
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Text
+            style={styles.instHeading}
+            accessibilityRole="header"
+            aria-level={2}
+          >
+            WHAT WOULD YOU LIKE TO DISPATCH?
+          </Text>
+          <Text style={styles.manualBodyText}>
+            • <Text style={styles.manualBold}>Requesting New Gear:</Text> Tell us about your favorite mechanical 35mm camera body, vintage lens, or newly released film emulsion so we can add it to our hardware database.{'\n'}
+            • <Text style={styles.manualBold}>Reporting Calculation Bugs:</Text> Found an anomaly in an aperture pool, reciprocity formula, or filter factor? Let us know the exact body/lens/film combination.{'\n'}
+            • <Text style={styles.manualBold}>General Inquiries &amp; Partnerships:</Text> Editorial collaborations, analog workshops, or community feedback.
           </Text>
 
           <View style={styles.contactFormBox}>
+            {validationError && (
+              <View style={styles.validationErrorBox}>
+                <Text style={styles.validationErrorText}>⚠ {validationError}</Text>
+              </View>
+            )}
+
             <View style={styles.contactFieldGroup}>
               <Text style={styles.contactLabel} accessibilityRole={'label' as any}>
                 YOUR NAME OR HANDLE:
@@ -850,7 +1030,10 @@ export function InstitutionalPageView({
                 nativeID="contact-name-input"
                 aria-label="Your Name or Handle"
                 value={senderName}
-                onChangeText={setSenderName}
+                onChangeText={(text) => {
+                  setSenderName(text);
+                  if (validationError) setValidationError(null);
+                }}
                 placeholder="e.g. Henri / 35mm Shooter"
                 placeholderTextColor={C.brown}
                 style={styles.contactInput}
@@ -865,9 +1048,14 @@ export function InstitutionalPageView({
                 nativeID="contact-email-input"
                 aria-label="Your Email Address"
                 value={senderEmail}
-                onChangeText={setSenderEmail}
+                onChangeText={(text) => {
+                  setSenderEmail(text);
+                  if (validationError) setValidationError(null);
+                }}
                 placeholder="you@example.com"
                 placeholderTextColor={C.brown}
+                keyboardType="email-address"
+                autoCapitalize="none"
                 style={styles.contactInput}
               />
             </View>
@@ -877,12 +1065,7 @@ export function InstitutionalPageView({
                 INQUIRY TOPIC:
               </Text>
               <View style={styles.topicPillsRow}>
-                {[
-                  'Camera / Lens Database Request',
-                  '35mm Film Stock Request',
-                  'Bug Report / Optical Math',
-                  'General Feedback',
-                ].map((topic) => {
+                {(['Gear Request', 'Bug Report', 'General Feedback'] as const).map((topic) => {
                   const active = messageTopic === topic;
                   return (
                     <Pressable
@@ -909,7 +1092,10 @@ export function InstitutionalPageView({
                 nativeID="contact-message-input"
                 aria-label="Message or Camera and Lens Specifications"
                 value={messageBody}
-                onChangeText={setMessageBody}
+                onChangeText={(text) => {
+                  setMessageBody(text);
+                  if (validationError) setValidationError(null);
+                }}
                 placeholder="Tell us the camera model, shutter speed range, lens focal length & aperture stops..."
                 placeholderTextColor={C.brown}
                 multiline
@@ -932,7 +1118,7 @@ export function InstitutionalPageView({
 
             {submittedNotice && (
               <Text style={styles.contactSuccessText}>
-                ✓ Your email client has been opened addressed to contact@sunny16rule.com. Thank you for helping expand the 35mm database!
+                ✓ Your dispatch has been prepared and opened in your email client addressed to contact@sunny16rule.com! Thank you for contributing to the 35mm database.
               </Text>
             )}
           </View>
@@ -1336,6 +1522,98 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: C.teal,
     marginTop: 4,
+  },
+  validationErrorBox: {
+    borderWidth: 1.5,
+    borderColor: C.orange,
+    backgroundColor: '#FFEFE6',
+    padding: 8,
+    marginBottom: 4,
+  },
+  validationErrorText: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.orange,
+  },
+  directContactBox: {
+    marginTop: 4,
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: C.teal,
+    backgroundColor: C.paperDark,
+    padding: 12,
+    gap: 10,
+  },
+  directContactKicker: {
+    fontFamily: display,
+    fontSize: 12,
+    letterSpacing: 1,
+    color: C.brown,
+  },
+  directContactEmail: {
+    fontFamily: display,
+    fontSize: 22,
+    letterSpacing: 1,
+    color: C.teal,
+    marginTop: 2,
+  },
+  directContactSub: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.ink,
+    marginTop: 4,
+  },
+  directContactBtnRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  directContactBtn: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  directContactBtnText: {
+    fontFamily: display,
+    fontSize: 14,
+    color: C.ink,
+    letterSpacing: 0.8,
+  },
+
+  // --- RETRO HEADER NAVIGATION ---
+  headerNavWrap: {
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.paperDark,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  headerNavRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  headerNavPill: {
+    borderWidth: 1.5,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  headerNavPillActive: {
+    backgroundColor: C.ink,
+  },
+  headerNavText: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.ink,
+    letterSpacing: 0.8,
   },
 
   // --- RETRO FOOTER NAVIGATION ---
