@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -249,6 +249,8 @@ export default function App() {
     }
   };
 
+  const scrollViewRef = useRef<ScrollView>(null);
+
   const navigateToRoute = (target: AppRoute) => {
     setActiveRoute(target);
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -256,8 +258,19 @@ export default function App() {
       if (window.location.pathname !== nextPath) {
         window.history.pushState({ route: target }, '', nextPath);
       }
+      try {
+        const mastheadEl = document.getElementById('app-header-masthead');
+        if (mastheadEl) {
+          mastheadEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } catch {
+        // Fallback for older browsers
+      }
       window.scrollTo?.({ top: 0, behavior: 'smooth' });
+      document.documentElement?.scrollTo?.({ top: 0, behavior: 'smooth' });
+      document.body?.scrollTo?.({ top: 0, behavior: 'smooth' });
     }
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   useEffect(() => {
@@ -300,6 +313,7 @@ export default function App() {
       el.setAttribute('content', content);
     };
 
+    upsertMeta('name', 'google-site-verification', 'A4sWJ143gpAcSABnnjhxRj4VbowOGnC1DrL_P4FJcgM');
     upsertMeta('name', 'description', routeMeta.description);
     upsertMeta('name', 'robots', 'index, follow, max-image-preview:large');
     upsertMeta('property', 'og:type', 'website');
@@ -557,10 +571,17 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={[styles.scroll, compact && { padding: 8 }]}>
+      <ScrollView
+        ref={scrollViewRef}
+        nativeID="main-app-scroll-view"
+        contentContainerStyle={[styles.scroll, compact && { padding: 8 }]}
+      >
         <View style={[styles.page, compact && { padding: 12 }]} role="main">
           {/* Masthead */}
-          <View style={[styles.stripes, compact && { marginHorizontal: -12, marginTop: -12, marginBottom: 10 }]}>
+          <View
+            nativeID="app-header-masthead"
+            style={[styles.stripes, compact && { marginHorizontal: -12, marginTop: -12, marginBottom: 10 }]}
+          >
             {[C.mustard, C.orange, C.brown, C.teal].map((c) => <View key={c} style={[styles.stripe, { backgroundColor: c }]} />)}
           </View>
           <View style={[styles.masthead, compact && { paddingBottom: 8, marginBottom: 4 }]} role="banner">
