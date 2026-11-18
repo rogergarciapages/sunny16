@@ -9,6 +9,7 @@ import {
   Platform,
   TextInput,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { FontDisplay } from 'expo-font';
@@ -178,8 +179,15 @@ function Chip({ label, sub, active, onPress, id }: { label: string; sub?: string
 }
 
 function Section({ step, title, children }: { step: string; title: string; children: React.ReactNode }) {
+  const sectionId = `section-step-${step}`;
   return (
-    <View style={styles.section} role="region" aria-label={`Step ${step}: ${title}`}>
+    <View
+      nativeID={sectionId}
+      {...(Platform.OS === 'web' ? { id: sectionId } : {})}
+      style={styles.section}
+      role="region"
+      aria-label={`Step ${step}: ${title}`}
+    >
       <View style={styles.sectionHead}>
         <View style={styles.stepBadge}><Text style={styles.stepText}>{step}</Text></View>
         <Text
@@ -270,6 +278,20 @@ export default function App() {
       document.body?.scrollTo?.({ top: 0, behavior: 'smooth' });
     }
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const scrollToElement = (elementId: string, block: ScrollLogicalPosition = 'start') => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      try {
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block });
+          return;
+        }
+      } catch {
+        // Fallback for older browsers
+      }
+    }
   };
 
   useEffect(() => {
@@ -396,6 +418,46 @@ export default function App() {
   const [lensId, setLensId] = useState<string | undefined>(undefined);
   const lens = lensId ? cameraLenses.find((l) => l.id === lensId) : undefined;
   const isGearComplete = Boolean(iso !== undefined && camera !== undefined && lens !== undefined);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseGlow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isGearComplete && !gearCollapsed) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1.4,
+              duration: 500,
+              useNativeDriver: false,
+            }),
+            Animated.timing(pulseGlow, {
+              toValue: 1,
+              duration: 500,
+              useNativeDriver: false,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(pulseAnim, {
+              toValue: 1.0,
+              duration: 500,
+              useNativeDriver: false,
+            }),
+            Animated.timing(pulseGlow, {
+              toValue: 0,
+              duration: 500,
+              useNativeDriver: false,
+            }),
+          ]),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      pulseAnim.setValue(1);
+      pulseGlow.setValue(0);
+    }
+  }, [isGearComplete, gearCollapsed, pulseAnim, pulseGlow]);
   const [conditionId, setConditionId] = useState<Condition['id']>('sunny');
   const [step1FilterId, setStep1FilterId] = useState<FilterId>('none');
   const [step2FilterId, setStep2FilterId] = useState<FilterId>('none');
@@ -523,6 +585,7 @@ export default function App() {
     setPreferredAperture(undefined);
     setCameraDecade('all');
     setCameraSearch('');
+    setTimeout(() => scrollToElement('section-step-3', 'start'), 150);
   };
 
   const hasActiveTweaks =
@@ -680,7 +743,10 @@ export default function App() {
                 nativeID="rig-card-film"
                 accessibilityRole="button"
                 aria-label={`Step 1 Film Stock: ${activeFilmStock ? activeFilmStock.shortName : (iso !== undefined ? `ISO ${iso}` : 'Select Film')}. Tap to change film`}
-                onPress={() => setGearCollapsed(false)}
+                onPress={() => {
+                  setGearCollapsed(false);
+                  setTimeout(() => scrollToElement('section-step-1', 'start'), 80);
+                }}
                 style={[styles.rigSummaryCard, iso === undefined && styles.rigSummaryCardPrompt]}
               >
                 <View style={styles.rigCardHeadRow}>
@@ -701,7 +767,10 @@ export default function App() {
                 nativeID="rig-card-camera"
                 accessibilityRole="button"
                 aria-label={`Steps 2 and 3 Camera Body: ${camera ? `${activeBrandName} ${camera.name}` : 'Select Camera'}. Tap to change camera`}
-                onPress={() => setGearCollapsed(false)}
+                onPress={() => {
+                  setGearCollapsed(false);
+                  setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 80);
+                }}
                 style={[styles.rigSummaryCard, !camera && styles.rigSummaryCardPrompt]}
               >
                 <View style={styles.rigCardHeadRow}>
@@ -722,7 +791,16 @@ export default function App() {
                 nativeID="rig-card-lens"
                 accessibilityRole="button"
                 aria-label={`Step 4 Mounted Lens: ${lens ? lens.name : 'Select Lens'}. Tap to change lens`}
-                onPress={() => setGearCollapsed(false)}
+                onPress={() => {
+                  setGearCollapsed(false);
+                  setTimeout(() => {
+                    if (!camera) {
+                      scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start');
+                    } else {
+                      scrollToElement('section-step-4', 'start');
+                    }
+                  }, 80);
+                }}
                 style={[styles.rigSummaryCard, !lens && styles.rigSummaryCardPrompt]}
               >
                 <View style={styles.rigCardHeadRow}>
@@ -762,6 +840,9 @@ export default function App() {
                       setIso(f.iso);
                       const matchingStock = filmStocks.find((s) => s.iso === f.iso);
                       setFilmStockId(matchingStock?.id);
+                      if (!camera) {
+                        setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 150);
+                      }
                     }}
                   />
                 ))}
@@ -838,6 +919,9 @@ export default function App() {
                             onPress={() => {
                               setIso(stock.iso);
                               setFilmStockId(stock.id);
+                              if (!camera) {
+                                setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 150);
+                              }
                             }}
                             style={[styles.stockPill, active && styles.stockPillActive]}
                           >
@@ -894,7 +978,13 @@ export default function App() {
               </Section>
 
               {/* UX #2: Step 3 with Decade Filter Pills & Quick Search */}
-              <View style={styles.section} role="region" aria-label={`Step 3: Camera Model ${activeBrandName ? `(${activeBrandName})` : ''}`}>
+              <View
+                nativeID="section-step-3"
+                {...(Platform.OS === 'web' ? { id: 'section-step-3' } : {})}
+                style={styles.section}
+                role="region"
+                aria-label={`Step 3: Camera Model ${activeBrandName ? `(${activeBrandName})` : ''}`}
+              >
                 <View style={styles.sectionHead}>
                   <View style={styles.stepBadge}><Text style={styles.stepText}>3</Text></View>
                   <Text
@@ -977,12 +1067,20 @@ export default function App() {
                           active={camera?.id === c.id}
                           onPress={() => {
                             setCameraId(c.id);
-                            if (c.mount === 'fixed' && c.fixedLensIds && c.fixedLensIds.length > 0) {
-                              setLensId(c.fixedLensIds[0]);
+                            const isFixed = c.mount === 'fixed' && c.fixedLensIds && c.fixedLensIds.length > 0;
+                            if (isFixed) {
+                              setLensId(c.fixedLensIds![0]);
                             } else {
                               setLensId(undefined);
                             }
                             setPreferredAperture(undefined);
+                            setTimeout(() => {
+                              if (isFixed) {
+                                scrollToElement('btn-collapse-after-lens', 'center');
+                              } else {
+                                scrollToElement('section-step-4', 'start');
+                              }
+                            }, 150);
                           }}
                         />
                       ))}
@@ -1022,6 +1120,9 @@ export default function App() {
                         onPress={() => {
                           setLensId(l.id);
                           setPreferredAperture(undefined);
+                          setTimeout(() => {
+                            scrollToElement('btn-collapse-after-lens', 'center');
+                          }, 150);
                         }}
                       />
                     );
@@ -1031,22 +1132,65 @@ export default function App() {
 
               <Pressable
                 nativeID="btn-collapse-after-lens"
+                {...(Platform.OS === 'web' ? { id: 'btn-collapse-after-lens' } : {})}
+                accessibilityRole="button"
+                aria-label="Done selecting gear. Tap to hide gear steps and view exposure table."
                 onPress={() => {
-                  if (isGearComplete) setGearCollapsed(true);
+                  if (isGearComplete) {
+                    setGearCollapsed(true);
+                    setTimeout(() => scrollToElement('board-control-bar', 'start'), 80);
+                  }
                 }}
                 style={[
                   styles.lockRigBottomBanner,
                   !isGearComplete && styles.lockRigBottomBannerDisabled,
+                  isGearComplete && styles.lockRigBottomBannerReady,
                 ]}
               >
-                <Text style={styles.lockRigBottomText}>
-                  {isGearComplete
-                    ? '▲ DONE SELECTING GEAR — HIDE CAMERA / LENS / FILM STEPS & JUMP TO EXPOSURE TABLE ▲'
-                    : '⚠ COMPLETE STEPS 1–4 TO ACTIVATE EXPOSURE TABLE & LIVE DIALS'}
-                </Text>
+                <View style={styles.lockRigContentRow}>
+                  <Animated.Text
+                    style={[
+                      styles.lockRigArrow,
+                      isGearComplete && {
+                        transform: [{ scale: pulseAnim }],
+                        color: pulseGlow.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [C.mustard, C.orange],
+                        }),
+                      },
+                    ]}
+                  >
+                    ▲
+                  </Animated.Text>
+                  <Text
+                    style={[
+                      styles.lockRigBottomText,
+                      isGearComplete && styles.lockRigBottomTextReady,
+                    ]}
+                  >
+                    {isGearComplete
+                      ? ' DONE SELECTING GEAR — HIDE CAMERA / LENS / FILM STEPS & JUMP TO EXPOSURE TABLE '
+                      : '⚠ COMPLETE STEPS 1–4 TO ACTIVATE EXPOSURE TABLE & LIVE DIALS'}
+                  </Text>
+                  <Animated.Text
+                    style={[
+                      styles.lockRigArrow,
+                      isGearComplete && {
+                        transform: [{ scale: pulseAnim }],
+                        color: pulseGlow.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [C.mustard, C.orange],
+                        }),
+                      },
+                    ]}
+                  >
+                    ▲
+                  </Animated.Text>
+                </View>
+
                 <Text style={styles.lockRigBottomSub}>
                   {isGearComplete
-                    ? `Loaded: ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`} · ${activeBrandName} ${camera?.name} · ${lens?.name} (you can reopen Steps 1–4 anytime above)`
+                    ? `Loaded: ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`} · ${activeBrandName} ${camera?.name} · ${lens?.name} — Tap to close and jump to exposure table`
                     : `Pending: ${[
                         iso === undefined ? 'Step 1 (Film/ISO)' : null,
                         !camera ? 'Steps 2–3 (Camera Body)' : null,
@@ -1077,7 +1221,10 @@ export default function App() {
                 <Pressable
                   accessibilityRole="button"
                   aria-label="Pending: Select Film Stock or ISO in Step 1"
-                  onPress={() => setGearCollapsed(false)}
+                  onPress={() => {
+                    setGearCollapsed(false);
+                    setTimeout(() => scrollToElement('section-step-1', 'start'), 80);
+                  }}
                   style={[styles.gearPromptItem, iso !== undefined && styles.gearPromptItemDone]}
                 >
                   <Text style={styles.gearPromptItemStep}>STEP 1 · FILM</Text>
@@ -1094,7 +1241,10 @@ export default function App() {
                 <Pressable
                   accessibilityRole="button"
                   aria-label="Pending: Select Camera Brand and Model in Steps 2-3"
-                  onPress={() => setGearCollapsed(false)}
+                  onPress={() => {
+                    setGearCollapsed(false);
+                    setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 80);
+                  }}
                   style={[styles.gearPromptItem, camera !== undefined && styles.gearPromptItemDone]}
                 >
                   <Text style={styles.gearPromptItemStep}>STEPS 2 & 3 · CAMERA</Text>
@@ -1111,7 +1261,16 @@ export default function App() {
                 <Pressable
                   accessibilityRole="button"
                   aria-label="Pending: Select Lens in Step 4"
-                  onPress={() => setGearCollapsed(false)}
+                  onPress={() => {
+                    setGearCollapsed(false);
+                    setTimeout(() => {
+                      if (!camera) {
+                        scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start');
+                      } else {
+                        scrollToElement('section-step-4', 'start');
+                      }
+                    }, 80);
+                  }}
                   style={[styles.gearPromptItem, lens !== undefined && styles.gearPromptItemDone]}
                 >
                   <Text style={styles.gearPromptItemStep}>STEP 4 · LENS</Text>
@@ -1135,7 +1294,11 @@ export default function App() {
           ) : (
             <>
               {/* Board Control Bar (Start / Reset before Exposure Table) */}
-              <View style={styles.controlBar} nativeID="board-control-bar">
+              <View
+                style={styles.controlBar}
+                nativeID="board-control-bar"
+                {...(Platform.OS === 'web' ? { id: 'board-control-bar' } : {})}
+              >
               <View style={styles.controlBarInfo}>
                 <View style={styles.controlStatusRow}>
                   <View
@@ -4091,5 +4254,28 @@ const styles = StyleSheet.create({
     fontFamily: type,
     fontSize: 11,
     color: C.brown,
+  },
+  lockRigContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  lockRigArrow: {
+    fontFamily: display,
+    fontSize: 20,
+    color: C.mustard,
+    lineHeight: 22,
+  },
+  lockRigBottomBannerReady: {
+    borderColor: C.orange,
+    backgroundColor: '#1E1914',
+    borderWidth: 2,
+    boxShadow: '0 0 14px rgba(224, 122, 43, 0.45)',
+  },
+  lockRigBottomTextReady: {
+    color: C.paper,
+    letterSpacing: 1.5,
   },
 });
