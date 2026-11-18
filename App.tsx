@@ -36,7 +36,6 @@ import {
   LightDirectionId,
   evaluateHandheldSafety,
   get35mmEquivalentFocalLength,
-  isHalfFrame35mm,
   calculateReciprocity,
 } from './lib/exposure';
 import WeatherIcon from './components/WeatherIcon';
@@ -249,7 +248,7 @@ export default function App() {
     }
   };
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<any>(null);
 
   const navigateToRoute = (target: AppRoute) => {
     setActiveRoute(target);
@@ -346,15 +345,15 @@ export default function App() {
     ldScript.text = JSON.stringify(SEO_JSON_LD);
   }, [activeRoute]);
 
-  const [iso, setIso] = useState(400);
-  const [filmStockId, setFilmStockId] = useState<string | undefined>('portra-400');
+  const [iso, setIso] = useState<number | undefined>(undefined);
+  const [filmStockId, setFilmStockId] = useState<string | undefined>(undefined);
   const activeFilmStock: FilmStock | undefined = filmStocks.find(
-    (s) => s.id === filmStockId && s.iso === iso,
+    (s) => s.id === filmStockId && (iso !== undefined ? s.iso === iso : true),
   );
-  const [brandId, setBrandId] = useState(brands[0].id);
-  const brandCameras = useMemo(() => cameras.filter((c) => c.brandId === brandId), [brandId]);
-  const [cameraId, setCameraId] = useState<string | undefined>(brandCameras[0]?.id);
-  const camera = cameras.find((c) => c.id === cameraId && c.brandId === brandId) ?? brandCameras[0];
+  const [brandId, setBrandId] = useState<string | undefined>(undefined);
+  const brandCameras = useMemo(() => (brandId ? cameras.filter((c) => c.brandId === brandId) : []), [brandId]);
+  const [cameraId, setCameraId] = useState<string | undefined>(undefined);
+  const camera = cameraId ? cameras.find((c) => c.id === cameraId) : undefined;
 
   const [gearCollapsed, setGearCollapsed] = useState<boolean>(false);
   const [filmDrawerOpen, setFilmDrawerOpen] = useState<boolean>(false);
@@ -365,6 +364,7 @@ export default function App() {
   const [activeDetailTab, setActiveDetailTab] = useState<'none' | 'dof' | 'filters' | 'grit' | 'film' | 'all'>('dof');
 
   const filteredBrandCameras = useMemo(() => {
+    if (!brandCameras || brandCameras.length === 0) return [];
     const q = cameraSearch.trim().toLowerCase();
     return brandCameras.filter((c) => {
       if (c.id === camera?.id) return true;
@@ -393,8 +393,9 @@ export default function App() {
       )
       .sort((a, b) => Number(b.brandId === camera.brandId) - Number(a.brandId === camera.brandId));
   }, [camera]);
-  const [lensId, setLensId] = useState<string | undefined>();
-  const lens = cameraLenses.find((l) => l.id === lensId) ?? cameraLenses[0];
+  const [lensId, setLensId] = useState<string | undefined>(undefined);
+  const lens = lensId ? cameraLenses.find((l) => l.id === lensId) : undefined;
+  const isGearComplete = Boolean(iso !== undefined && camera !== undefined && lens !== undefined);
   const [conditionId, setConditionId] = useState<Condition['id']>('sunny');
   const [step1FilterId, setStep1FilterId] = useState<FilterId>('none');
   const [step2FilterId, setStep2FilterId] = useState<FilterId>('none');
@@ -490,7 +491,7 @@ export default function App() {
 
   const activeCondition = conditions.find((c) => c.id === conditionId) ?? conditions[0];
   const lightConditionedAperture = useMemo(() => {
-    if (validPreferredAperture === undefined || !camera || !lens) return undefined;
+    if (validPreferredAperture === undefined || !camera || !lens || iso === undefined) return undefined;
     const rec = recommend(
       iso,
       activeCondition,
@@ -517,7 +518,7 @@ export default function App() {
 
   const selectBrand = (id: string) => {
     setBrandId(id);
-    setCameraId(cameras.find((c) => c.brandId === id)?.id);
+    setCameraId(undefined);
     setLensId(undefined);
     setPreferredAperture(undefined);
     setCameraDecade('all');
@@ -534,14 +535,12 @@ export default function App() {
     prioritizeHandheld ||
     conditionId !== 'sunny';
 
-  const defaultBrandId = brands[0].id;
-  const defaultCameraId = cameras.find((c) => c.brandId === defaultBrandId)?.id;
   const isDefaultGear =
-    iso === 400 &&
-    filmStockId === 'portra-400' &&
-    brandId === defaultBrandId &&
-    camera?.id === defaultCameraId &&
-    (lensId === undefined || lensId === cameraLenses[0]?.id);
+    iso === undefined &&
+    filmStockId === undefined &&
+    brandId === undefined &&
+    camera === undefined &&
+    lens === undefined;
 
   const resetTweaksToSunny16 = () => {
     setConditionId('sunny');
@@ -556,14 +555,15 @@ export default function App() {
   };
 
   const resetFullBoard = () => {
-    setIso(400);
-    setFilmStockId('portra-400');
-    setBrandId(defaultBrandId);
-    setCameraId(defaultCameraId);
+    setIso(undefined);
+    setFilmStockId(undefined);
+    setBrandId(undefined);
+    setCameraId(undefined);
     setLensId(undefined);
     setCameraDecade('all');
     setCameraSearch('');
     resetTweaksToSunny16();
+    setGearCollapsed(false);
   };
 
   const activeBrandName = brands.find((b) => b.id === brandId)?.name ?? '';
@@ -615,29 +615,33 @@ export default function App() {
             />
           ) : (
             <>
-              {/* UX #1: Collapsible Active Rig / Gear Locker Summary Bar */}
-          {camera && lens && (
-            <View style={styles.rigLockerBar} nativeID="rig-locker-bar" role="region" aria-label="Active Camera, Lens and Film Setup">
-              <View style={styles.rigLockerTopRow}>
-                <View style={styles.rigLockerTitleGroup}>
-                  <View style={styles.rigBadgeIcon}>
-                    <CameraSvgIcon size={18} color={C.mustard} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={styles.rigLockerTitle}
-                      accessibilityRole="header"
-                      aria-level={2}
-                    >
-                      ACTIVE CAMERA, LENS & FILM SETUP (STEPS 1–4)
-                    </Text>
-                    <Text style={styles.rigLockerSub}>
-                      {gearCollapsed
-                        ? 'Steps 1–4 are hidden so you can meter faster — tap any card below or the button to change your Film, Camera, or Lens'
-                        : 'Select your 1. Film/ISO, 2. Brand, 3. Camera Model & 4. Lens below — or hide these steps to jump straight to the Exposure Table'}
-                    </Text>
-                  </View>
+              {/* UX #1: Active Rig / Gear Locker Summary Bar */}
+          <View style={styles.rigLockerBar} nativeID="rig-locker-bar" role="region" aria-label="Active Camera, Lens and Film Setup">
+            <View style={styles.rigLockerTopRow}>
+              <View style={styles.rigLockerTitleGroup}>
+                <View style={styles.rigBadgeIcon}>
+                  <CameraSvgIcon size={18} color={C.mustard} />
                 </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={styles.rigLockerTitle}
+                    accessibilityRole="header"
+                    aria-level={2}
+                  >
+                    {isGearComplete
+                      ? 'ACTIVE CAMERA, LENS & FILM SETUP (STEPS 1–4)'
+                      : '35MM GEAR LOCKER SETUP IN PROGRESS (STEPS 1–4)'}
+                  </Text>
+                  <Text style={styles.rigLockerSub}>
+                    {isGearComplete
+                      ? (gearCollapsed
+                          ? 'Steps 1–4 are hidden so you can meter faster — tap any card below or the button to change your Film, Camera, or Lens'
+                          : 'Select your 1. Film/ISO, 2. Brand, 3. Camera Model & 4. Lens below — or hide these steps to jump straight to the Exposure Table')
+                      : 'Select your Film (Step 1), Camera Body (Steps 2–3), and Mounted Lens (Step 4) to activate the Sunny 16 meter'}
+                  </Text>
+                </View>
+              </View>
+              {isGearComplete && (
                 <Pressable
                   nativeID="btn-toggle-gear-locker"
                   accessibilityRole="button"
@@ -668,71 +672,80 @@ export default function App() {
                       : 'Collapse Steps 1–4 & focus on meter'}
                   </Text>
                 </Pressable>
-              </View>
-
-              <View style={styles.rigCardsRow}>
-                <Pressable
-                  nativeID="rig-card-film"
-                  accessibilityRole="button"
-                  aria-label={`Step 1 Film Stock: ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}. Tap to change film`}
-                  onPress={() => setGearCollapsed(false)}
-                  style={styles.rigSummaryCard}
-                >
-                  <View style={styles.rigCardHeadRow}>
-                    <Text style={styles.rigCardStep}>STEP 1 · FILM STOCK / ISO</Text>
-                    {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE FILM ▾</Text>}
-                  </View>
-                  <Text style={styles.rigCardVal} numberOfLines={1}>
-                    {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}
-                  </Text>
-                  <Text style={styles.rigCardSub} numberOfLines={1}>
-                    {activeFilmStock ? `ISO ${iso} · ${activeFilmStock.process}` : `ASA ${iso} Standard`}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  nativeID="rig-card-camera"
-                  accessibilityRole="button"
-                  aria-label={`Steps 2 and 3 Camera Body: ${activeBrandName} ${camera.name}. Tap to change camera`}
-                  onPress={() => setGearCollapsed(false)}
-                  style={styles.rigSummaryCard}
-                >
-                  <View style={styles.rigCardHeadRow}>
-                    <Text style={styles.rigCardStep}>STEPS 2–3 · CAMERA BODY</Text>
-                    {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE CAMERA ▾</Text>}
-                  </View>
-                  <Text style={styles.rigCardVal} numberOfLines={1}>
-                    {activeBrandName} {camera.name}
-                  </Text>
-                  <Text style={styles.rigCardSub} numberOfLines={1}>
-                    {camera.year} · {camera.format} · Max {formatShutter(Math.min(...camera.shutterSpeeds))}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  nativeID="rig-card-lens"
-                  accessibilityRole="button"
-                  aria-label={`Step 4 Mounted Lens: ${lens.name}. Tap to change lens`}
-                  onPress={() => setGearCollapsed(false)}
-                  style={styles.rigSummaryCard}
-                >
-                  <View style={styles.rigCardHeadRow}>
-                    <Text style={styles.rigCardStep}>STEP 4 · MOUNTED LENS</Text>
-                    {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE LENS ▾</Text>}
-                  </View>
-                  <Text style={styles.rigCardVal} numberOfLines={1}>
-                    {lens.name}
-                  </Text>
-                  <Text style={styles.rigCardSub} numberOfLines={1}>
-                    f/{lens.apertures[0]}–f/{lens.apertures[lens.apertures.length - 1]}
-                    {get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
-                      ? ` · ≈${get35mmEquivalentFocalLength(camera, lens)}mm eq.`
-                      : ''}
-                  </Text>
-                </Pressable>
-              </View>
+              )}
             </View>
-          )}
+
+            <View style={styles.rigCardsRow}>
+              <Pressable
+                nativeID="rig-card-film"
+                accessibilityRole="button"
+                aria-label={`Step 1 Film Stock: ${activeFilmStock ? activeFilmStock.shortName : (iso !== undefined ? `ISO ${iso}` : 'Select Film')}. Tap to change film`}
+                onPress={() => setGearCollapsed(false)}
+                style={[styles.rigSummaryCard, iso === undefined && styles.rigSummaryCardPrompt]}
+              >
+                <View style={styles.rigCardHeadRow}>
+                  <Text style={styles.rigCardStep}>STEP 1 · FILM STOCK / ISO</Text>
+                  {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE FILM ▾</Text>}
+                </View>
+                <Text style={[styles.rigCardVal, iso === undefined && { color: C.orange }]} numberOfLines={1}>
+                  {activeFilmStock ? activeFilmStock.shortName : (iso !== undefined ? `ISO ${iso}` : 'SELECT FILM ▾')}
+                </Text>
+                <Text style={styles.rigCardSub} numberOfLines={1}>
+                  {activeFilmStock
+                    ? `ISO ${iso} · ${activeFilmStock.process}`
+                    : (iso !== undefined ? `ASA ${iso} Standard` : 'Choose ISO or film stock in Step 1')}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                nativeID="rig-card-camera"
+                accessibilityRole="button"
+                aria-label={`Steps 2 and 3 Camera Body: ${camera ? `${activeBrandName} ${camera.name}` : 'Select Camera'}. Tap to change camera`}
+                onPress={() => setGearCollapsed(false)}
+                style={[styles.rigSummaryCard, !camera && styles.rigSummaryCardPrompt]}
+              >
+                <View style={styles.rigCardHeadRow}>
+                  <Text style={styles.rigCardStep}>STEPS 2–3 · CAMERA BODY</Text>
+                  {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE CAMERA ▾</Text>}
+                </View>
+                <Text style={[styles.rigCardVal, !camera && { color: C.orange }]} numberOfLines={1}>
+                  {camera ? `${activeBrandName} ${camera.name}` : 'SELECT CAMERA BODY ▾'}
+                </Text>
+                <Text style={styles.rigCardSub} numberOfLines={1}>
+                  {camera
+                    ? `${camera.year} · ${camera.format} · Max ${formatShutter(Math.min(...camera.shutterSpeeds))}`
+                    : 'Pick Brand & Model in Steps 2–3'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                nativeID="rig-card-lens"
+                accessibilityRole="button"
+                aria-label={`Step 4 Mounted Lens: ${lens ? lens.name : 'Select Lens'}. Tap to change lens`}
+                onPress={() => setGearCollapsed(false)}
+                style={[styles.rigSummaryCard, !lens && styles.rigSummaryCardPrompt]}
+              >
+                <View style={styles.rigCardHeadRow}>
+                  <Text style={styles.rigCardStep}>STEP 4 · MOUNTED LENS</Text>
+                  {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE LENS ▾</Text>}
+                </View>
+                <Text style={[styles.rigCardVal, !lens && { color: C.orange }]} numberOfLines={1}>
+                  {lens
+                    ? lens.name
+                    : (!camera ? 'CAMERA REQUIRED' : 'SELECT LENS ▾')}
+                </Text>
+                <Text style={styles.rigCardSub} numberOfLines={1}>
+                  {lens
+                    ? `f/${lens.apertures[0]}–f/${lens.apertures[lens.apertures.length - 1]}${
+                        camera && get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
+                          ? ` · ≈${get35mmEquivalentFocalLength(camera, lens)}mm eq.`
+                          : ''
+                      }`
+                    : (!camera ? 'Select camera in Step 3 first' : 'Choose compatible lens in Step 4')}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
 
           {/* Steps 1–4 (Collapsible Gear Setup) */}
           {!gearCollapsed && (
@@ -776,7 +789,9 @@ export default function App() {
                       <Text style={styles.foldableHeaderSub}>
                         {activeFilmStock
                           ? `Loaded: ${activeFilmStock.name} (${activeFilmStock.process} · Latitude +${activeFilmStock.latitudeOverStops}/−${activeFilmStock.latitudeUnderStops} EV)`
-                          : `Loaded: Generic ISO ${iso} Standard Curve — tap to pick a specific 35mm film roll`}
+                          : (iso !== undefined
+                              ? `Loaded: Generic ISO ${iso} Standard Curve — tap to pick a specific 35mm film roll`
+                              : 'No film loaded — tap to pick a classic 35mm film roll or choose ISO above')}
                       </Text>
                     </View>
                   </View>
@@ -798,14 +813,17 @@ export default function App() {
                       <Pressable
                         nativeID="stock-generic"
                         accessibilityRole="button"
-                        aria-label={`Select Generic ISO ${iso} standard curve`}
-                        onPress={() => setFilmStockId(undefined)}
-                        style={[styles.stockPill, !activeFilmStock && styles.stockPillActive]}
+                        aria-label={`Select Generic ISO ${iso ?? 400} standard curve`}
+                        onPress={() => {
+                          if (iso === undefined) setIso(400);
+                          setFilmStockId(undefined);
+                        }}
+                        style={[styles.stockPill, !activeFilmStock && iso !== undefined && styles.stockPillActive]}
                       >
-                        <Text style={[styles.stockPillTitle, !activeFilmStock && { color: C.paper }]}>
-                          GENERIC ISO {iso}
+                        <Text style={[styles.stockPillTitle, !activeFilmStock && iso !== undefined && { color: C.paper }]}>
+                          GENERIC ISO {iso ?? 400}
                         </Text>
-                        <Text style={[styles.stockPillSub, !activeFilmStock && { color: C.paperDark }]}>
+                        <Text style={[styles.stockPillSub, !activeFilmStock && iso !== undefined && { color: C.paperDark }]}>
                           STANDARD CURVE
                         </Text>
                       </Pressable>
@@ -876,7 +894,7 @@ export default function App() {
               </Section>
 
               {/* UX #2: Step 3 with Decade Filter Pills & Quick Search */}
-              <View style={styles.section} role="region" aria-label={`Step 3: Camera Model (${activeBrandName})`}>
+              <View style={styles.section} role="region" aria-label={`Step 3: Camera Model ${activeBrandName ? `(${activeBrandName})` : ''}`}>
                 <View style={styles.sectionHead}>
                   <View style={styles.stepBadge}><Text style={styles.stepText}>3</Text></View>
                   <Text
@@ -884,81 +902,111 @@ export default function App() {
                     accessibilityRole="header"
                     aria-level={2}
                   >
-                    Camera Model ({activeBrandName})
+                    Camera Model {activeBrandName ? `(${activeBrandName})` : ''}
                   </Text>
                   <View style={styles.rule} />
                 </View>
-                {brandCameras.length > 6 && (
-                  <View style={styles.cameraFilterBar} nativeID="camera-filter-bar">
-                    <View style={styles.decadePillsRow}>
-                      {[
-                        { id: 'all' as const, label: `ALL (${brandCameras.length})` },
-                        { id: '60s' as const, label: '50s–60s' },
-                        { id: '70s' as const, label: '1970s' },
-                        { id: '80s' as const, label: '1980s' },
-                        { id: '90s' as const, label: '1990s+' },
-                      ].map((dec) => {
-                        const active = cameraDecade === dec.id;
-                        return (
-                          <Pressable
-                            key={dec.id}
-                            nativeID={`decade-${dec.id}`}
-                            accessibilityRole="button"
-                            aria-label={`Filter ${activeBrandName} cameras by decade: ${dec.label}`}
-                            onPress={() => setCameraDecade(dec.id)}
-                            style={[styles.decadePill, active && styles.decadePillActive]}
-                          >
-                            <Text style={[styles.decadePillText, active && { color: C.paper }]}>
-                              {dec.label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                    <View style={styles.searchBoxWrap}>
-                      <TextInput
-                        nativeID="camera-search-input"
-                        aria-label={`Search ${activeBrandName} camera model or year`}
-                        value={cameraSearch}
-                        onChangeText={setCameraSearch}
-                        placeholder={`Search ${activeBrandName} model or year...`}
-                        placeholderTextColor={C.brown}
-                        style={styles.searchInput}
-                      />
-                      {cameraSearch.length > 0 && (
-                        <Pressable
-                          nativeID="clear-camera-search"
-                          accessibilityRole="button"
-                          aria-label="Clear camera search"
-                          onPress={() => setCameraSearch('')}
-                          style={styles.searchClearBtn}
-                        >
-                          <Text style={styles.searchClearText}>✕</Text>
-                        </Pressable>
-                      )}
-                    </View>
+
+                {!brandId ? (
+                  <View style={styles.guidanceCard}>
+                    <Text style={styles.guidanceTitle}>← SELECT A CAMERA BRAND IN STEP 2 FIRST</Text>
+                    <Text style={styles.guidanceSub}>
+                      Choose Leica, Nikon, Canon, Olympus, Pentax, Yashica, Minolta, Hasselblad, or Voigtländer above to browse vintage 35mm bodies.
+                    </Text>
                   </View>
+                ) : (
+                  <>
+                    {brandCameras.length > 6 && (
+                      <View style={styles.cameraFilterBar} nativeID="camera-filter-bar">
+                        <View style={styles.decadePillsRow}>
+                          {[
+                            { id: 'all' as const, label: `ALL (${brandCameras.length})` },
+                            { id: '60s' as const, label: '50s–60s' },
+                            { id: '70s' as const, label: '1970s' },
+                            { id: '80s' as const, label: '1980s' },
+                            { id: '90s' as const, label: '1990s+' },
+                          ].map((dec) => {
+                            const active = cameraDecade === dec.id;
+                            return (
+                              <Pressable
+                                key={dec.id}
+                                nativeID={`decade-${dec.id}`}
+                                accessibilityRole="button"
+                                aria-label={`Filter ${activeBrandName} cameras by decade: ${dec.label}`}
+                                onPress={() => setCameraDecade(dec.id)}
+                                style={[styles.decadePill, active && styles.decadePillActive]}
+                              >
+                                <Text style={[styles.decadePillText, active && { color: C.paper }]}>
+                                  {dec.label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                        <View style={styles.searchBoxWrap}>
+                          <TextInput
+                            nativeID="camera-search-input"
+                            aria-label={`Search ${activeBrandName} camera model or year`}
+                            value={cameraSearch}
+                            onChangeText={setCameraSearch}
+                            placeholder={`Search ${activeBrandName} model or year...`}
+                            placeholderTextColor={C.brown}
+                            style={styles.searchInput}
+                          />
+                          {cameraSearch.length > 0 && (
+                            <Pressable
+                              nativeID="clear-camera-search"
+                              accessibilityRole="button"
+                              aria-label="Clear camera search"
+                              onPress={() => setCameraSearch('')}
+                              style={styles.searchClearBtn}
+                            >
+                              <Text style={styles.searchClearText}>✕</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
+                    )}
+                    <View style={styles.chipRow}>
+                      {filteredBrandCameras.map((c) => (
+                        <Chip
+                          key={c.id}
+                          id={`camera-${c.id}`}
+                          label={c.name}
+                          sub={`${c.year} · ${c.format}${c.mount === 'fixed' ? ' · Fixed Lens' : ''}`}
+                          active={camera?.id === c.id}
+                          onPress={() => {
+                            setCameraId(c.id);
+                            if (c.mount === 'fixed' && c.fixedLensIds && c.fixedLensIds.length > 0) {
+                              setLensId(c.fixedLensIds[0]);
+                            } else {
+                              setLensId(undefined);
+                            }
+                            setPreferredAperture(undefined);
+                          }}
+                        />
+                      ))}
+                    </View>
+                  </>
                 )}
-                <View style={styles.chipRow}>
-                  {filteredBrandCameras.map((c) => (
-                    <Chip
-                      key={c.id}
-                      id={`camera-${c.id}`}
-                      label={c.name}
-                      sub={`${c.year} · ${c.format}`}
-                      active={camera?.id === c.id}
-                      onPress={() => {
-                        setCameraId(c.id);
-                        setLensId(undefined);
-                        setPreferredAperture(undefined);
-                      }}
-                    />
-                  ))}
-                </View>
               </View>
 
-              <Section step="4" title="Lens">
-                {cameraLenses.length === 0 ? (
+              <Section step="4" title={camera?.mount === 'fixed' ? 'Lens (Integrated)' : 'Lens'}>
+                {!camera ? (
+                  <View style={styles.guidanceCard}>
+                    <Text style={styles.guidanceTitle}>⚠ SELECT A CAMERA BODY IN STEP 3 FIRST</Text>
+                    <Text style={styles.guidanceSub}>
+                      Lenses depend on the camera&apos;s lens mount (e.g. Nikon F, Canon FD, Leica M, Pentax K, or M42). Once you choose a body, its compatible vintage prime &amp; zoom lenses will appear here.
+                    </Text>
+                  </View>
+                ) : camera.mount === 'fixed' ? (
+                  <View style={[styles.guidanceCard, { borderColor: C.teal }]}>
+                    <Text style={[styles.guidanceTitle, { color: C.teal }]}>✓ FIXED INTEGRATED LENS</Text>
+                    <Text style={styles.guidanceSub}>
+                      The {camera.name} features an integrated, non-interchangeable lens ({lens?.name ?? 'Fixed Lens'}). Optical depth of field, aperture range, and shutter limits are automatically calibrated.
+                    </Text>
+                  </View>
+                ) : cameraLenses.length === 0 ? (
                   <Text style={styles.body}>No lenses listed for this mount yet — add one in data/lenses.ts</Text>
                 ) : (
                   cameraLenses.map((l) => {
@@ -983,22 +1031,111 @@ export default function App() {
 
               <Pressable
                 nativeID="btn-collapse-after-lens"
-                onPress={() => setGearCollapsed(true)}
-                style={styles.lockRigBottomBanner}
+                onPress={() => {
+                  if (isGearComplete) setGearCollapsed(true);
+                }}
+                style={[
+                  styles.lockRigBottomBanner,
+                  !isGearComplete && styles.lockRigBottomBannerDisabled,
+                ]}
               >
                 <Text style={styles.lockRigBottomText}>
-                  ▲ DONE SELECTING GEAR — HIDE CAMERA / LENS / FILM STEPS & JUMP TO EXPOSURE TABLE ▲
+                  {isGearComplete
+                    ? '▲ DONE SELECTING GEAR — HIDE CAMERA / LENS / FILM STEPS & JUMP TO EXPOSURE TABLE ▲'
+                    : '⚠ COMPLETE STEPS 1–4 TO ACTIVATE EXPOSURE TABLE & LIVE DIALS'}
                 </Text>
                 <Text style={styles.lockRigBottomSub}>
-                  Loaded: {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`} · {activeBrandName} {camera?.name} · {lens?.name} (you can reopen Steps 1–4 anytime above)
+                  {isGearComplete
+                    ? `Loaded: ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`} · ${activeBrandName} ${camera?.name} · ${lens?.name} (you can reopen Steps 1–4 anytime above)`
+                    : `Pending: ${[
+                        iso === undefined ? 'Step 1 (Film/ISO)' : null,
+                        !camera ? 'Steps 2–3 (Camera Body)' : null,
+                        !lens ? 'Step 4 (Lens)' : null,
+                      ].filter(Boolean).join(' · ')}`}
                 </Text>
               </Pressable>
             </View>
           )}
 
-          {/* Board Control Bar (Start / Reset before Exposure Table) */}
-          {camera && lens && (
-            <View style={styles.controlBar} nativeID="board-control-bar">
+          {!camera || !lens || iso === undefined ? (
+            <View style={styles.gearPromptCard} nativeID="gear-prompt-card">
+              <View style={styles.gearPromptHead}>
+                <View style={styles.gearPromptIconBadge}>
+                  <CameraSvgIcon size={24} color={C.mustard} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.gearPromptTitle}>
+                    CALCULATOR STANDBY · LOAD YOUR 35MM GEAR
+                  </Text>
+                  <Text style={styles.gearPromptSub}>
+                    Select your film stock (ISO), camera body, and lens in Steps 1–4 above to calibrate accurate optical exposure, mechanical shutter limits, and circle-of-confusion depth of field.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.gearPromptGrid}>
+                <Pressable
+                  accessibilityRole="button"
+                  aria-label="Pending: Select Film Stock or ISO in Step 1"
+                  onPress={() => setGearCollapsed(false)}
+                  style={[styles.gearPromptItem, iso !== undefined && styles.gearPromptItemDone]}
+                >
+                  <Text style={styles.gearPromptItemStep}>STEP 1 · FILM</Text>
+                  <Text style={[styles.gearPromptItemVal, iso === undefined && { color: C.orange }]}>
+                    {iso !== undefined
+                      ? (activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`)
+                      : 'SELECT FILM / ISO ▾'}
+                  </Text>
+                  <Text style={styles.gearPromptItemHint}>
+                    {iso !== undefined ? '✓ Sensitivity calibrated' : 'Tap to pick ISO 25 – 3200'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  aria-label="Pending: Select Camera Brand and Model in Steps 2-3"
+                  onPress={() => setGearCollapsed(false)}
+                  style={[styles.gearPromptItem, camera !== undefined && styles.gearPromptItemDone]}
+                >
+                  <Text style={styles.gearPromptItemStep}>STEPS 2 & 3 · CAMERA</Text>
+                  <Text style={[styles.gearPromptItemVal, !camera && { color: C.orange }]}>
+                    {camera !== undefined
+                      ? `${activeBrandName} ${camera.name}`
+                      : 'SELECT CAMERA BODY ▾'}
+                  </Text>
+                  <Text style={styles.gearPromptItemHint}>
+                    {camera !== undefined ? `✓ ${camera.format} (${camera.year})` : 'Choose brand & model'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  aria-label="Pending: Select Lens in Step 4"
+                  onPress={() => setGearCollapsed(false)}
+                  style={[styles.gearPromptItem, lens !== undefined && styles.gearPromptItemDone]}
+                >
+                  <Text style={styles.gearPromptItemStep}>STEP 4 · LENS</Text>
+                  <Text style={[styles.gearPromptItemVal, !lens && { color: C.orange }]}>
+                    {lens !== undefined
+                      ? lens.name
+                      : camera
+                        ? 'SELECT LENS ▾'
+                        : 'CAMERA REQUIRED FIRST'}
+                  </Text>
+                  <Text style={styles.gearPromptItemHint}>
+                    {lens !== undefined
+                      ? `✓ ${lens.focalLength}mm f/${lens.apertures[0]}`
+                      : camera
+                        ? 'Choose compatible mount lens'
+                        : 'Select camera in Step 3'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <>
+              {/* Board Control Bar (Start / Reset before Exposure Table) */}
+              <View style={styles.controlBar} nativeID="board-control-bar">
               <View style={styles.controlBarInfo}>
                 <View style={styles.controlStatusRow}>
                   <View
@@ -1071,10 +1208,8 @@ export default function App() {
                 </Pressable>
               </View>
             </View>
-          )}
 
-          {/* Exposure table */}
-          {camera && lens && (
+            {/* Exposure table */}
             <View style={styles.tableWrap} role="region" aria-label="Exposure Table and Lighting Conditions">
               <View style={styles.tableHeader}>
                 <Text
@@ -1457,7 +1592,8 @@ export default function App() {
 
               <Result iso={iso} conditionId={conditionId} />
             </View>
-          )}
+          </>
+        )}
 
               {/* AdSense Slot 1: Placed safely below the interactive calculator (Zero CLS) */}
               <AdSenseSlot
@@ -1490,8 +1626,9 @@ export default function App() {
     </SafeAreaView>
   );
 
-  function Result({ iso, conditionId }: { iso: number; conditionId: Condition['id'] }) {
-    const cond = conditions.find((c) => c.id === conditionId)!;
+  function Result({ iso, conditionId }: { iso: number | undefined; conditionId: Condition['id'] }) {
+    if (!camera || !lens || iso === undefined) return null;
+    const cond = conditions.find((c) => c.id === conditionId) ?? conditions[0];
     const r = recommend(
       iso,
       cond,
@@ -3853,5 +3990,106 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     color: C.ink,
+  },
+  guidanceCard: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: C.brown,
+    backgroundColor: C.paperDark,
+    padding: 14,
+    marginVertical: 4,
+    gap: 6,
+  },
+  guidanceTitle: {
+    fontFamily: display,
+    fontSize: 16,
+    color: C.orange,
+    letterSpacing: 1,
+  },
+  guidanceSub: {
+    fontFamily: type,
+    fontSize: 12,
+    lineHeight: 18,
+    color: C.ink,
+  },
+  lockRigBottomBannerDisabled: {
+    backgroundColor: C.paperDark,
+    borderColor: C.brown,
+  },
+  rigSummaryCardPrompt: {
+    borderColor: C.orange,
+    backgroundColor: '#FDF6E2',
+  },
+  gearPromptCard: {
+    borderWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.paper,
+    padding: 16,
+    marginVertical: 12,
+    gap: 14,
+    boxShadow: '3px 3px 0 #1E1A16',
+  },
+  gearPromptHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  gearPromptIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: C.ink,
+    backgroundColor: C.paperDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gearPromptTitle: {
+    fontFamily: display,
+    fontSize: 22,
+    color: C.ink,
+    letterSpacing: 1.5,
+  },
+  gearPromptSub: {
+    fontFamily: type,
+    fontSize: 12,
+    lineHeight: 18,
+    color: C.brown,
+    marginTop: 2,
+  },
+  gearPromptGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  gearPromptItem: {
+    flex: 1,
+    minWidth: 180,
+    borderWidth: 1.5,
+    borderColor: C.brown,
+    backgroundColor: C.paperDark,
+    padding: 12,
+    gap: 4,
+  },
+  gearPromptItemDone: {
+    borderColor: C.teal,
+    backgroundColor: '#E8F2EC',
+  },
+  gearPromptItemStep: {
+    fontFamily: display,
+    fontSize: 13,
+    color: C.brown,
+    letterSpacing: 1,
+  },
+  gearPromptItemVal: {
+    fontFamily: display,
+    fontSize: 18,
+    color: C.ink,
+    letterSpacing: 1,
+  },
+  gearPromptItemHint: {
+    fontFamily: type,
+    fontSize: 11,
+    color: C.brown,
   },
 });
