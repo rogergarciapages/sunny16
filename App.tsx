@@ -679,1084 +679,1083 @@ export default function App() {
           ) : (
             <>
               {/* UX #1: Active Rig / Gear Locker Summary Bar */}
-          <View style={styles.rigLockerBar} nativeID="rig-locker-bar" role="region" aria-label="Active Camera, Lens and Film Setup">
-            <View style={styles.rigLockerTopRow}>
-              <View style={styles.rigLockerTitleGroup}>
-                <View style={styles.rigBadgeIcon}>
-                  <CameraSvgIcon size={18} color={C.mustard} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={styles.rigLockerTitle}
-                    accessibilityRole="header"
-                    aria-level={2}
-                  >
-                    {isGearComplete
-                      ? 'ACTIVE CAMERA, LENS & FILM SETUP (STEPS 1–4)'
-                      : '35MM GEAR LOCKER SETUP IN PROGRESS (STEPS 1–4)'}
-                  </Text>
-                  <Text style={styles.rigLockerSub}>
-                    {isGearComplete
-                      ? (gearCollapsed
-                          ? 'Steps 1–4 are hidden so you can meter faster — tap any card below or the button to change your Film, Camera, or Lens'
-                          : 'Select your 1. Film/ISO, 2. Brand, 3. Camera Model & 4. Lens below — or hide these steps to jump straight to the Exposure Table')
-                      : 'Select your Film (Step 1), Camera Body (Steps 2–3), and Mounted Lens (Step 4) to activate the Sunny 16 meter'}
-                  </Text>
-                </View>
-              </View>
-              {isGearComplete && (
-                <Pressable
-                  nativeID="btn-toggle-gear-locker"
-                  accessibilityRole="button"
-                  aria-label={
-                    gearCollapsed
-                      ? 'Expand Steps 1 to 4 to change camera, lens, or film'
-                      : 'Collapse Steps 1 to 4 and focus on exposure table'
-                  }
-                  onPress={() => setGearCollapsed((v) => !v)}
-                  style={[
-                    styles.rigCollapseBtn,
-                    gearCollapsed && { backgroundColor: C.mustard },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.rigCollapseBtnText,
-                      gearCollapsed && { color: C.ink },
-                    ]}
-                  >
-                    {gearCollapsed
-                      ? '▼ CHANGE CAMERA / LENS / FILM'
-                      : '▲ HIDE CAMERA / LENS / FILM STEPS'}
-                  </Text>
-                  <Text style={styles.rigCollapseBtnSub}>
-                    {gearCollapsed
-                      ? 'Show Steps 1–4 to swap gear'
-                      : 'Collapse Steps 1–4 & focus on meter'}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-
-            <View style={styles.rigCardsRow}>
-              <Pressable
-                nativeID="rig-card-film"
-                accessibilityRole="button"
-                aria-label={`Step 1 Film Stock: ${activeFilmStock ? activeFilmStock.shortName : (iso !== undefined ? `ISO ${iso}` : 'Select Film')}. Tap to change film`}
-                onPress={() => {
-                  setGearCollapsed(false);
-                  setTimeout(() => scrollToElement('section-step-1', 'start'), 80);
-                }}
-                style={[styles.rigSummaryCard, iso === undefined && styles.rigSummaryCardPrompt]}
-              >
-                <View style={styles.rigCardHeadRow}>
-                  <Text style={styles.rigCardStep}>STEP 1 · FILM STOCK / ISO</Text>
-                  {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE FILM ▾</Text>}
-                </View>
-                <Text style={[styles.rigCardVal, iso === undefined && { color: C.orange }]} numberOfLines={1}>
-                  {activeFilmStock ? activeFilmStock.shortName : (iso !== undefined ? `ISO ${iso}` : 'SELECT FILM ▾')}
-                </Text>
-                <Text style={styles.rigCardSub} numberOfLines={1}>
-                  {activeFilmStock
-                    ? `ISO ${iso} · ${activeFilmStock.process}`
-                    : (iso !== undefined ? `ASA ${iso} Standard` : 'Choose ISO or film stock in Step 1')}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                nativeID="rig-card-camera"
-                accessibilityRole="button"
-                aria-label={`Steps 2 and 3 Camera Body: ${camera ? `${activeBrandName} ${camera.name}` : 'Select Camera'}. Tap to change camera`}
-                onPress={() => {
-                  setGearCollapsed(false);
-                  setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 80);
-                }}
-                style={[styles.rigSummaryCard, !camera && styles.rigSummaryCardPrompt]}
-              >
-                <View style={styles.rigCardHeadRow}>
-                  <Text style={styles.rigCardStep}>STEPS 2–3 · CAMERA BODY</Text>
-                  {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE CAMERA ▾</Text>}
-                </View>
-                <Text style={[styles.rigCardVal, !camera && { color: C.orange }]} numberOfLines={1}>
-                  {camera ? `${activeBrandName} ${camera.name}` : 'SELECT CAMERA BODY ▾'}
-                </Text>
-                <Text style={styles.rigCardSub} numberOfLines={1}>
-                  {camera
-                    ? `${camera.year} · ${camera.format} · Max ${formatShutter(Math.min(...camera.shutterSpeeds))}`
-                    : 'Pick Brand & Model in Steps 2–3'}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                nativeID="rig-card-lens"
-                accessibilityRole="button"
-                aria-label={`Step 4 Mounted Lens: ${lens ? lens.name : 'Select Lens'}. Tap to change lens`}
-                onPress={() => {
-                  setGearCollapsed(false);
-                  setTimeout(() => {
-                    if (!camera) {
-                      scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start');
-                    } else {
-                      scrollToElement('section-step-4', 'start');
-                    }
-                  }, 80);
-                }}
-                style={[styles.rigSummaryCard, !lens && styles.rigSummaryCardPrompt]}
-              >
-                <View style={styles.rigCardHeadRow}>
-                  <Text style={styles.rigCardStep}>STEP 4 · MOUNTED LENS</Text>
-                  {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE LENS ▾</Text>}
-                </View>
-                <Text style={[styles.rigCardVal, !lens && { color: C.orange }]} numberOfLines={1}>
-                  {lens
-                    ? lens.name
-                    : (!camera ? 'CAMERA REQUIRED' : 'SELECT LENS ▾')}
-                </Text>
-                <Text style={styles.rigCardSub} numberOfLines={1}>
-                  {lens
-                    ? `f/${lens.apertures[0]}–f/${lens.apertures[lens.apertures.length - 1]}${
-                        camera && get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
-                          ? ` · ≈${get35mmEquivalentFocalLength(camera, lens)}mm eq.`
-                          : ''
-                      }`
-                    : (!camera ? 'Select camera in Step 3 first' : 'Choose compatible lens in Step 4')}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Steps 1–4 (Collapsible Gear Setup) */}
-          {!gearCollapsed && (
-            <View nativeID="gear-setup-steps">
-              <Section step="1" title="Film Speed · ISO / ASA">
-                {films.map((f) => (
-                  <Chip
-                    key={f.iso}
-                    id={`iso-${f.iso}`}
-                    label={`${f.iso}`}
-                    sub={f.label.split('/ ')[1]}
-                    active={iso === f.iso}
-                    onPress={() => {
-                      setIso(f.iso);
-                      const matchingStock = filmStocks.find((s) => s.iso === f.iso);
-                      setFilmStockId(matchingStock?.id);
-                      if (!camera) {
-                        setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 150);
-                      }
-                    }}
-                  />
-                ))}
-              </Section>
-
-              {/* Foldable Fine-Tuning Drawer: Classic 35mm Film Stock Presets & Latitude / Reciprocity Guide */}
-              <View style={styles.filmStockBox} nativeID="film-stock-presets">
-                <Pressable
-                  nativeID="btn-toggle-film-drawer"
-                  accessibilityRole="button"
-                  aria-label="Toggle 35mm film emulsion, latitude and reciprocity selector"
-                  onPress={() => setFilmDrawerOpen((v) => !v)}
-                  style={styles.foldableDrawerHeader}
-                >
-                  <View style={styles.foldableHeaderLeft}>
-                    <FilmStripSvgIcon size={15} color={C.ink} />
+              <View style={styles.rigLockerBar} nativeID="rig-locker-bar" role="region" aria-label="Active Camera, Lens and Film Setup">
+                <View style={styles.rigLockerTopRow}>
+                  <View style={styles.rigLockerTitleGroup}>
+                    <View style={styles.rigBadgeIcon}>
+                      <CameraSvgIcon size={18} color={C.mustard} />
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text
-                        style={styles.foldableHeaderTitle}
+                        style={styles.rigLockerTitle}
                         accessibilityRole="header"
-                        aria-level={3}
+                        aria-level={2}
                       >
-                        OPTIONAL FINE-TUNING: 35MM FILM EMULSION, LATITUDE & RECIPROCITY GUIDE
+                        {isGearComplete
+                          ? 'ACTIVE CAMERA, LENS & FILM SETUP (STEPS 1–4)'
+                          : '35MM GEAR LOCKER SETUP IN PROGRESS (STEPS 1–4)'}
                       </Text>
-                      <Text style={styles.foldableHeaderSub}>
-                        {activeFilmStock
-                          ? `Loaded: ${activeFilmStock.name} (${activeFilmStock.process} · Latitude +${activeFilmStock.latitudeOverStops}/−${activeFilmStock.latitudeUnderStops} EV)`
-                          : (iso !== undefined
-                              ? `Loaded: Generic ISO ${iso} Standard Curve — tap to pick a specific 35mm film roll`
-                              : 'No film loaded — tap to pick a classic 35mm film roll or choose ISO above')}
+                      <Text style={styles.rigLockerSub}>
+                        {isGearComplete
+                          ? (gearCollapsed
+                            ? 'Steps 1–4 are hidden so you can meter faster — tap any card below or the button to change your Film, Camera, or Lens'
+                            : 'Select your 1. Film/ISO, 2. Brand, 3. Camera Model & 4. Lens below — or hide these steps to jump straight to the Exposure Table')
+                          : 'Select your Film (Step 1), Camera Body (Steps 2–3), and Mounted Lens (Step 4) to activate the Sunny 16 meter'}
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.foldableToggleBadge}>
-                    <Text style={styles.foldableToggleBadgeText}>
-                      {filmDrawerOpen
-                        ? '▲ HIDE FILM STOCKS'
-                        : `▼ CHOOSE FILM STOCK (${filmStocks.length})`}
-                    </Text>
-                  </View>
-                </Pressable>
-
-                {filmDrawerOpen && (
-                  <View style={styles.foldableDrawerBody}>
-                    <Text style={styles.filmStockHeaderLabel}>
-                      TAP ANY 35MM FILM ROLL BELOW TO LOAD ITS ISO, LATITUDE & RECIPROCITY CURVE:
-                    </Text>
-                    <View style={styles.chipRow}>
-                      <Pressable
-                        nativeID="stock-generic"
-                        accessibilityRole="button"
-                        aria-label={`Select Generic ISO ${iso ?? 400} standard curve`}
-                        onPress={() => {
-                          if (iso === undefined) setIso(400);
-                          setFilmStockId(undefined);
-                        }}
-                        style={[styles.stockPill, !activeFilmStock && iso !== undefined && styles.stockPillActive]}
+                  {isGearComplete && (
+                    <Pressable
+                      nativeID="btn-toggle-gear-locker"
+                      accessibilityRole="button"
+                      aria-label={
+                        gearCollapsed
+                          ? 'Expand Steps 1 to 4 to change camera, lens, or film'
+                          : 'Collapse Steps 1 to 4 and focus on exposure table'
+                      }
+                      onPress={() => setGearCollapsed((v) => !v)}
+                      style={[
+                        styles.rigCollapseBtn,
+                        gearCollapsed && { backgroundColor: C.mustard },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.rigCollapseBtnText,
+                          gearCollapsed && { color: C.ink },
+                        ]}
                       >
-                        <Text style={[styles.stockPillTitle, !activeFilmStock && iso !== undefined && { color: C.paper }]}>
-                          GENERIC ISO {iso ?? 400}
-                        </Text>
-                        <Text style={[styles.stockPillSub, !activeFilmStock && iso !== undefined && { color: C.paperDark }]}>
-                          STANDARD CURVE
-                        </Text>
-                      </Pressable>
-                      {filmStocks.map((stock) => {
-                        const active = activeFilmStock?.id === stock.id;
-                        return (
-                          <Pressable
-                            key={stock.id}
-                            nativeID={`stock-${stock.id}`}
-                            accessibilityRole="button"
-                            aria-label={`Load ${stock.name} (ISO ${stock.iso})`}
-                            onPress={() => {
-                              setIso(stock.iso);
-                              setFilmStockId(stock.id);
-                              if (!camera) {
-                                setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 150);
-                              }
-                            }}
-                            style={[styles.stockPill, active && styles.stockPillActive]}
-                          >
-                            <Text style={[styles.stockPillTitle, active && { color: C.paper }]}>
-                              {stock.shortName}
-                            </Text>
-                            <Text style={[styles.stockPillSub, active && { color: C.mustard }]}>
-                              ISO {stock.iso} · {stock.process.split(' ')[0]}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                    {activeFilmStock && (
-                      <View style={styles.filmStockBanner}>
-                        <View style={styles.filmStockBannerHead}>
-                          <Text style={styles.filmStockBannerTitle}>
-                            {activeFilmStock.name.toUpperCase()} · {activeFilmStock.process.toUpperCase()}
-                          </Text>
-                          <View style={styles.filmStockBadgesRow}>
-                            <View style={styles.filmLatitudeBadge}>
-                              <Text style={styles.filmLatitudeBadgeText}>
-                                LATITUDE: +{activeFilmStock.latitudeOverStops} / −{activeFilmStock.latitudeUnderStops} EV
-                              </Text>
-                            </View>
-                            <View style={[styles.filmLatitudeBadge, { backgroundColor: C.teal }]}>
-                              <Text style={[styles.filmLatitudeBadgeText, { color: C.paper }]}>
-                                GRAIN: {activeFilmStock.grain.toUpperCase()}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                        <Text style={styles.filmStockCharText}>{activeFilmStock.character}</Text>
-                        <Text style={styles.filmStockTipText}>
-                          <Text style={{ fontFamily: display, color: C.orange, fontSize: 13 }}>FIELD TIP: </Text>
-                          {activeFilmStock.fieldTip}
-                        </Text>
-                        <Text style={styles.filmStockTipText}>
-                          <Text style={{ fontFamily: display, color: C.mustard, fontSize: 13 }}>
-                            LONG EXPOSURE RECIPROCITY (≥1S):{' '}
-                          </Text>
-                          {activeFilmStock.reciprocityNote}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-
-              <Section step="2" title="Camera Brand">
-                {brands.map((b) => (
-                  <Chip key={b.id} id={`brand-${b.id}`} label={b.name} sub={b.country} active={brandId === b.id} onPress={() => selectBrand(b.id)} />
-                ))}
-              </Section>
-
-              {/* UX #2: Step 3 with Decade Filter Pills & Quick Search */}
-              <View
-                nativeID="section-step-3"
-                {...(Platform.OS === 'web' ? { id: 'section-step-3' } : {})}
-                style={styles.section}
-                role="region"
-                aria-label={`Step 3: Camera Model ${activeBrandName ? `(${activeBrandName})` : ''}`}
-              >
-                <View style={styles.sectionHead}>
-                  <View style={styles.stepBadge}><Text style={styles.stepText}>3</Text></View>
-                  <Text
-                    style={styles.sectionTitle}
-                    accessibilityRole="header"
-                    aria-level={2}
-                  >
-                    Camera Model {activeBrandName ? `(${activeBrandName})` : ''}
-                  </Text>
-                  <View style={styles.rule} />
+                        {gearCollapsed
+                          ? '▼ CHANGE CAMERA / LENS / FILM'
+                          : '▲ HIDE CAMERA / LENS / FILM STEPS'}
+                      </Text>
+                      <Text style={styles.rigCollapseBtnSub}>
+                        {gearCollapsed
+                          ? 'Show Steps 1–4 to swap gear'
+                          : 'Collapse Steps 1–4 & focus on meter'}
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
 
-                {!brandId ? (
-                  <View style={styles.guidanceCard}>
-                    <Text style={styles.guidanceTitle}>← SELECT A CAMERA BRAND IN STEP 2 FIRST</Text>
-                    <Text style={styles.guidanceSub}>
-                      Choose Leica, Nikon, Canon, Olympus, Pentax, Yashica, Minolta, Hasselblad, or Voigtländer above to browse vintage 35mm bodies.
+                <View style={styles.rigCardsRow}>
+                  <Pressable
+                    nativeID="rig-card-film"
+                    accessibilityRole="button"
+                    aria-label={`Step 1 Film Stock: ${activeFilmStock ? activeFilmStock.shortName : (iso !== undefined ? `ISO ${iso}` : 'Select Film')}. Tap to change film`}
+                    onPress={() => {
+                      setGearCollapsed(false);
+                      setTimeout(() => scrollToElement('section-step-1', 'start'), 80);
+                    }}
+                    style={[styles.rigSummaryCard, iso === undefined && styles.rigSummaryCardPrompt]}
+                  >
+                    <View style={styles.rigCardHeadRow}>
+                      <Text style={styles.rigCardStep}>STEP 1 · FILM STOCK / ISO</Text>
+                      {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE FILM ▾</Text>}
+                    </View>
+                    <Text style={[styles.rigCardVal, iso === undefined && { color: C.orange }]} numberOfLines={1}>
+                      {activeFilmStock ? activeFilmStock.shortName : (iso !== undefined ? `ISO ${iso}` : 'SELECT FILM ▾')}
                     </Text>
-                  </View>
-                ) : (
-                  <>
-                    {brandCameras.length > 6 && (
-                      <View style={styles.cameraFilterBar} nativeID="camera-filter-bar">
-                        <View style={styles.decadePillsRow}>
-                          {[
-                            { id: 'all' as const, label: `ALL (${brandCameras.length})` },
-                            { id: '60s' as const, label: '50s–60s' },
-                            { id: '70s' as const, label: '1970s' },
-                            { id: '80s' as const, label: '1980s' },
-                            { id: '90s' as const, label: '1990s+' },
-                          ].map((dec) => {
-                            const active = cameraDecade === dec.id;
+                    <Text style={styles.rigCardSub} numberOfLines={1}>
+                      {activeFilmStock
+                        ? `ISO ${iso} · ${activeFilmStock.process}`
+                        : (iso !== undefined ? `ASA ${iso} Standard` : 'Choose ISO or film stock in Step 1')}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    nativeID="rig-card-camera"
+                    accessibilityRole="button"
+                    aria-label={`Steps 2 and 3 Camera Body: ${camera ? `${activeBrandName} ${camera.name}` : 'Select Camera'}. Tap to change camera`}
+                    onPress={() => {
+                      setGearCollapsed(false);
+                      setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 80);
+                    }}
+                    style={[styles.rigSummaryCard, !camera && styles.rigSummaryCardPrompt]}
+                  >
+                    <View style={styles.rigCardHeadRow}>
+                      <Text style={styles.rigCardStep}>STEPS 2–3 · CAMERA BODY</Text>
+                      {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE CAMERA ▾</Text>}
+                    </View>
+                    <Text style={[styles.rigCardVal, !camera && { color: C.orange }]} numberOfLines={1}>
+                      {camera ? `${activeBrandName} ${camera.name}` : 'SELECT CAMERA BODY ▾'}
+                    </Text>
+                    <Text style={styles.rigCardSub} numberOfLines={1}>
+                      {camera
+                        ? `${camera.year} · ${camera.format} · Max ${formatShutter(Math.min(...camera.shutterSpeeds))}`
+                        : 'Pick Brand & Model in Steps 2–3'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    nativeID="rig-card-lens"
+                    accessibilityRole="button"
+                    aria-label={`Step 4 Mounted Lens: ${lens ? lens.name : 'Select Lens'}. Tap to change lens`}
+                    onPress={() => {
+                      setGearCollapsed(false);
+                      setTimeout(() => {
+                        if (!camera) {
+                          scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start');
+                        } else {
+                          scrollToElement('section-step-4', 'start');
+                        }
+                      }, 80);
+                    }}
+                    style={[styles.rigSummaryCard, !lens && styles.rigSummaryCardPrompt]}
+                  >
+                    <View style={styles.rigCardHeadRow}>
+                      <Text style={styles.rigCardStep}>STEP 4 · MOUNTED LENS</Text>
+                      {gearCollapsed && <Text style={styles.rigCardEditTag}>CHANGE LENS ▾</Text>}
+                    </View>
+                    <Text style={[styles.rigCardVal, !lens && { color: C.orange }]} numberOfLines={1}>
+                      {lens
+                        ? lens.name
+                        : (!camera ? 'CAMERA REQUIRED' : 'SELECT LENS ▾')}
+                    </Text>
+                    <Text style={styles.rigCardSub} numberOfLines={1}>
+                      {lens
+                        ? `f/${lens.apertures[0]}–f/${lens.apertures[lens.apertures.length - 1]}${camera && get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
+                          ? ` · ≈${get35mmEquivalentFocalLength(camera, lens)}mm eq.`
+                          : ''
+                        }`
+                        : (!camera ? 'Select camera in Step 3 first' : 'Choose compatible lens in Step 4')}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Steps 1–4 (Collapsible Gear Setup) */}
+              {!gearCollapsed && (
+                <View nativeID="gear-setup-steps">
+                  <Section step="1" title="Film Speed · ISO / ASA">
+                    {films.map((f) => (
+                      <Chip
+                        key={f.iso}
+                        id={`iso-${f.iso}`}
+                        label={`${f.iso}`}
+                        sub={f.label.split('/ ')[1]}
+                        active={iso === f.iso}
+                        onPress={() => {
+                          setIso(f.iso);
+                          const matchingStock = filmStocks.find((s) => s.iso === f.iso);
+                          setFilmStockId(matchingStock?.id);
+                          if (!camera) {
+                            setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 150);
+                          }
+                        }}
+                      />
+                    ))}
+                  </Section>
+
+                  {/* Foldable Fine-Tuning Drawer: Classic 35mm Film Stock Presets & Latitude / Reciprocity Guide */}
+                  <View style={styles.filmStockBox} nativeID="film-stock-presets">
+                    <Pressable
+                      nativeID="btn-toggle-film-drawer"
+                      accessibilityRole="button"
+                      aria-label="Toggle 35mm film emulsion, latitude and reciprocity selector"
+                      onPress={() => setFilmDrawerOpen((v) => !v)}
+                      style={styles.foldableDrawerHeader}
+                    >
+                      <View style={styles.foldableHeaderLeft}>
+                        <FilmStripSvgIcon size={15} color={C.ink} />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={styles.foldableHeaderTitle}
+                            accessibilityRole="header"
+                            aria-level={3}
+                          >
+                            OPTIONAL FINE-TUNING: 35MM FILM EMULSION, LATITUDE & RECIPROCITY GUIDE
+                          </Text>
+                          <Text style={styles.foldableHeaderSub}>
+                            {activeFilmStock
+                              ? `Loaded: ${activeFilmStock.name} (${activeFilmStock.process} · Latitude +${activeFilmStock.latitudeOverStops}/−${activeFilmStock.latitudeUnderStops} EV)`
+                              : (iso !== undefined
+                                ? `Loaded: Generic ISO ${iso} Standard Curve — tap to pick a specific 35mm film roll`
+                                : 'No film loaded — tap to pick a classic 35mm film roll or choose ISO above')}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.foldableToggleBadge}>
+                        <Text style={styles.foldableToggleBadgeText}>
+                          {filmDrawerOpen
+                            ? '▲ HIDE FILM STOCKS'
+                            : `▼ CHOOSE FILM STOCK (${filmStocks.length})`}
+                        </Text>
+                      </View>
+                    </Pressable>
+
+                    {filmDrawerOpen && (
+                      <View style={styles.foldableDrawerBody}>
+                        <Text style={styles.filmStockHeaderLabel}>
+                          TAP ANY 35MM FILM ROLL BELOW TO LOAD ITS ISO, LATITUDE & RECIPROCITY CURVE:
+                        </Text>
+                        <View style={styles.chipRow}>
+                          <Pressable
+                            nativeID="stock-generic"
+                            accessibilityRole="button"
+                            aria-label={`Select Generic ISO ${iso ?? 400} standard curve`}
+                            onPress={() => {
+                              if (iso === undefined) setIso(400);
+                              setFilmStockId(undefined);
+                            }}
+                            style={[styles.stockPill, !activeFilmStock && iso !== undefined && styles.stockPillActive]}
+                          >
+                            <Text style={[styles.stockPillTitle, !activeFilmStock && iso !== undefined && { color: C.paper }]}>
+                              GENERIC ISO {iso ?? 400}
+                            </Text>
+                            <Text style={[styles.stockPillSub, !activeFilmStock && iso !== undefined && { color: C.paperDark }]}>
+                              STANDARD CURVE
+                            </Text>
+                          </Pressable>
+                          {filmStocks.map((stock) => {
+                            const active = activeFilmStock?.id === stock.id;
                             return (
                               <Pressable
-                                key={dec.id}
-                                nativeID={`decade-${dec.id}`}
+                                key={stock.id}
+                                nativeID={`stock-${stock.id}`}
                                 accessibilityRole="button"
-                                aria-label={`Filter ${activeBrandName} cameras by decade: ${dec.label}`}
-                                onPress={() => setCameraDecade(dec.id)}
-                                style={[styles.decadePill, active && styles.decadePillActive]}
+                                aria-label={`Load ${stock.name} (ISO ${stock.iso})`}
+                                onPress={() => {
+                                  setIso(stock.iso);
+                                  setFilmStockId(stock.id);
+                                  if (!camera) {
+                                    setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 150);
+                                  }
+                                }}
+                                style={[styles.stockPill, active && styles.stockPillActive]}
                               >
-                                <Text style={[styles.decadePillText, active && { color: C.paper }]}>
-                                  {dec.label}
+                                <Text style={[styles.stockPillTitle, active && { color: C.paper }]}>
+                                  {stock.shortName}
+                                </Text>
+                                <Text style={[styles.stockPillSub, active && { color: C.mustard }]}>
+                                  ISO {stock.iso} · {stock.process.split(' ')[0]}
                                 </Text>
                               </Pressable>
                             );
                           })}
                         </View>
-                        <View style={styles.searchBoxWrap}>
-                          <TextInput
-                            nativeID="camera-search-input"
-                            aria-label={`Search ${activeBrandName} camera model or year`}
-                            value={cameraSearch}
-                            onChangeText={setCameraSearch}
-                            placeholder={`Search ${activeBrandName} model or year...`}
-                            placeholderTextColor={C.brown}
-                            style={styles.searchInput}
-                          />
-                          {cameraSearch.length > 0 && (
-                            <Pressable
-                              nativeID="clear-camera-search"
-                              accessibilityRole="button"
-                              aria-label="Clear camera search"
-                              onPress={() => setCameraSearch('')}
-                              style={styles.searchClearBtn}
-                            >
-                              <Text style={styles.searchClearText}>✕</Text>
-                            </Pressable>
-                          )}
-                        </View>
-                      </View>
-                    )}
-                    <View style={styles.chipRow}>
-                      {filteredBrandCameras.map((c) => (
-                        <Chip
-                          key={c.id}
-                          id={`camera-${c.id}`}
-                          label={c.name}
-                          sub={`${c.year} · ${c.format}${c.mount === 'fixed' ? ' · Fixed Lens' : ''}`}
-                          active={camera?.id === c.id}
-                          onPress={() => {
-                            setCameraId(c.id);
-                            const isFixed = c.mount === 'fixed' && c.fixedLensIds && c.fixedLensIds.length > 0;
-                            if (isFixed) {
-                              setLensId(c.fixedLensIds![0]);
-                            } else {
-                              setLensId(undefined);
-                            }
-                            setPreferredAperture(undefined);
-                            setTimeout(() => {
-                              if (isFixed) {
-                                scrollToElement('btn-collapse-after-lens', 'center');
-                              } else {
-                                scrollToElement('section-step-4', 'start');
-                              }
-                            }, 150);
-                          }}
-                        />
-                      ))}
-                    </View>
-                  </>
-                )}
-              </View>
-
-              <Section step="4" title={camera?.mount === 'fixed' ? 'Lens (Integrated)' : 'Lens'}>
-                {!camera ? (
-                  <View style={styles.guidanceCard}>
-                    <Text style={styles.guidanceTitle}>⚠ SELECT A CAMERA BODY IN STEP 3 FIRST</Text>
-                    <Text style={styles.guidanceSub}>
-                      Lenses depend on the camera&apos;s lens mount (e.g. Nikon F, Canon FD, Leica M, Pentax K, or M42). Once you choose a body, its compatible vintage prime &amp; zoom lenses will appear here.
-                    </Text>
-                  </View>
-                ) : camera.mount === 'fixed' ? (
-                  <View style={[styles.guidanceCard, { borderColor: C.teal }]}>
-                    <Text style={[styles.guidanceTitle, { color: C.teal }]}>✓ FIXED INTEGRATED LENS</Text>
-                    <Text style={styles.guidanceSub}>
-                      The {camera.name} features an integrated, non-interchangeable lens ({lens?.name ?? 'Fixed Lens'}). Optical depth of field, aperture range, and shutter limits are automatically calibrated.
-                    </Text>
-                  </View>
-                ) : cameraLenses.length === 0 ? (
-                  <Text style={styles.body}>No lenses listed for this mount yet — add one in data/lenses.ts</Text>
-                ) : (
-                  cameraLenses.map((l) => {
-                    const eqMm = camera ? get35mmEquivalentFocalLength(camera, l) : l.focalLength;
-                    const eqSuffix = eqMm !== l.focalLength ? ` · ≈${eqMm}mm eq.` : '';
-                    return (
-                      <Chip
-                        key={l.id}
-                        id={`lens-${l.id}`}
-                        label={l.name}
-                        sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}${eqSuffix}`}
-                        active={lens?.id === l.id}
-                        onPress={() => {
-                          setLensId(l.id);
-                          setPreferredAperture(undefined);
-                          setTimeout(() => {
-                            scrollToElement('btn-collapse-after-lens', 'center');
-                          }, 150);
-                        }}
-                      />
-                    );
-                  })
-                )}
-              </Section>
-
-              <Pressable
-                nativeID="btn-collapse-after-lens"
-                {...(Platform.OS === 'web' ? { id: 'btn-collapse-after-lens' } : {})}
-                accessibilityRole="button"
-                aria-label="Done selecting gear. Tap to hide gear steps and view exposure table."
-                onPress={() => {
-                  if (isGearComplete) {
-                    setGearCollapsed(true);
-                    setTimeout(() => scrollToElement('board-control-bar', 'start'), 80);
-                  }
-                }}
-                style={[
-                  styles.lockRigBottomBanner,
-                  !isGearComplete && styles.lockRigBottomBannerDisabled,
-                  isGearComplete && styles.lockRigBottomBannerReady,
-                ]}
-              >
-                <View style={styles.lockRigContentRow}>
-                  <Animated.Text
-                    style={[
-                      styles.lockRigArrow,
-                      isGearComplete && {
-                        transform: [{ scale: pulseAnim }],
-                        color: pulseGlow.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [C.mustard, C.orange],
-                        }),
-                      },
-                    ]}
-                  >
-                    ▲
-                  </Animated.Text>
-                  <Text
-                    style={[
-                      styles.lockRigBottomText,
-                      isGearComplete && styles.lockRigBottomTextReady,
-                    ]}
-                  >
-                    {isGearComplete
-                      ? ' DONE SELECTING GEAR — HIDE CAMERA / LENS / FILM STEPS & JUMP TO EXPOSURE TABLE '
-                      : '⚠ COMPLETE STEPS 1–4 TO ACTIVATE EXPOSURE TABLE & LIVE DIALS'}
-                  </Text>
-                  <Animated.Text
-                    style={[
-                      styles.lockRigArrow,
-                      isGearComplete && {
-                        transform: [{ scale: pulseAnim }],
-                        color: pulseGlow.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [C.mustard, C.orange],
-                        }),
-                      },
-                    ]}
-                  >
-                    ▲
-                  </Animated.Text>
-                </View>
-
-                <Text style={styles.lockRigBottomSub}>
-                  {isGearComplete
-                    ? `Loaded: ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`} · ${activeBrandName} ${camera?.name} · ${lens?.name} — Tap to close and jump to exposure table`
-                    : `Pending: ${[
-                        iso === undefined ? 'Step 1 (Film/ISO)' : null,
-                        !camera ? 'Steps 2–3 (Camera Body)' : null,
-                        !lens ? 'Step 4 (Lens)' : null,
-                      ].filter(Boolean).join(' · ')}`}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {!camera || !lens || iso === undefined ? (
-            <View style={styles.gearPromptCard} nativeID="gear-prompt-card">
-              <View style={styles.gearPromptHead}>
-                <View style={styles.gearPromptIconBadge}>
-                  <CameraSvgIcon size={24} color={C.mustard} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gearPromptTitle}>
-                    CALCULATOR STANDBY · LOAD YOUR 35MM GEAR
-                  </Text>
-                  <Text style={styles.gearPromptSub}>
-                    Select your film stock (ISO), camera body, and lens in Steps 1–4 above to calibrate accurate optical exposure, mechanical shutter limits, and circle-of-confusion depth of field.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.gearPromptGrid}>
-                <Pressable
-                  accessibilityRole="button"
-                  aria-label="Pending: Select Film Stock or ISO in Step 1"
-                  onPress={() => {
-                    setGearCollapsed(false);
-                    setTimeout(() => scrollToElement('section-step-1', 'start'), 80);
-                  }}
-                  style={[styles.gearPromptItem, iso !== undefined && styles.gearPromptItemDone]}
-                >
-                  <Text style={styles.gearPromptItemStep}>STEP 1 · FILM</Text>
-                  <Text style={[styles.gearPromptItemVal, iso === undefined && { color: C.orange }]}>
-                    {iso !== undefined
-                      ? (activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`)
-                      : 'SELECT FILM / ISO ▾'}
-                  </Text>
-                  <Text style={styles.gearPromptItemHint}>
-                    {iso !== undefined ? '✓ Sensitivity calibrated' : 'Tap to pick ISO 25 – 3200'}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  aria-label="Pending: Select Camera Brand and Model in Steps 2-3"
-                  onPress={() => {
-                    setGearCollapsed(false);
-                    setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 80);
-                  }}
-                  style={[styles.gearPromptItem, camera !== undefined && styles.gearPromptItemDone]}
-                >
-                  <Text style={styles.gearPromptItemStep}>STEPS 2 & 3 · CAMERA</Text>
-                  <Text style={[styles.gearPromptItemVal, !camera && { color: C.orange }]}>
-                    {camera !== undefined
-                      ? `${activeBrandName} ${camera.name}`
-                      : 'SELECT CAMERA BODY ▾'}
-                  </Text>
-                  <Text style={styles.gearPromptItemHint}>
-                    {camera !== undefined ? `✓ ${camera.format} (${camera.year})` : 'Choose brand & model'}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  aria-label="Pending: Select Lens in Step 4"
-                  onPress={() => {
-                    setGearCollapsed(false);
-                    setTimeout(() => {
-                      if (!camera) {
-                        scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start');
-                      } else {
-                        scrollToElement('section-step-4', 'start');
-                      }
-                    }, 80);
-                  }}
-                  style={[styles.gearPromptItem, lens !== undefined && styles.gearPromptItemDone]}
-                >
-                  <Text style={styles.gearPromptItemStep}>STEP 4 · LENS</Text>
-                  <Text style={[styles.gearPromptItemVal, !lens && { color: C.orange }]}>
-                    {lens !== undefined
-                      ? lens.name
-                      : camera
-                        ? 'SELECT LENS ▾'
-                        : 'CAMERA REQUIRED FIRST'}
-                  </Text>
-                  <Text style={styles.gearPromptItemHint}>
-                    {lens !== undefined
-                      ? `✓ ${lens.focalLength}mm f/${lens.apertures[0]}`
-                      : camera
-                        ? 'Choose compatible mount lens'
-                        : 'Select camera in Step 3'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : (
-            <>
-              {/* Board Control Bar (Start / Reset before Exposure Table) */}
-              <View
-                style={styles.controlBar}
-                nativeID="board-control-bar"
-                {...(Platform.OS === 'web' ? { id: 'board-control-bar' } : {})}
-              >
-              <View style={styles.controlBarInfo}>
-                <View style={styles.controlStatusRow}>
-                  <View
-                    style={[
-                      styles.controlStatusDot,
-                      { backgroundColor: hasActiveTweaks ? C.orange : C.teal },
-                    ]}
-                  />
-                  <Text style={styles.controlBarTitle}>
-                    {hasActiveTweaks
-                      ? 'CUSTOM EXPOSURE MODIFIERS ACTIVE'
-                      : 'BASELINE · PURE SUNNY 16 READY'}
-                  </Text>
-                </View>
-                <Text style={styles.controlBarSub}>
-                  {activeFilmStock ? `${activeFilmStock.name} (ISO ${iso})` : `ISO ${iso}`} ·{' '}
-                  {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
-                  {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
-                  {activeFilter.hasFilters ? ` · ${activeFilter.shortName} (${activeFilter.factorLabel})` : ''}
-                  {grittyId !== 'off' ? ` · ${activeGritty.shortName}` : ''}
-                  {prioritizeHandheld ? ' · 1/f Handheld Guard' : ''}
-                  {lightConditionedAperture !== undefined
-                    ? ` · Lock ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})`
-                    : ''}
-                </Text>
-              </View>
-
-              <View style={styles.controlBarButtons}>
-                <Pressable
-                  nativeID="btn-start-pure-sunny16"
-                  onPress={resetTweaksToSunny16}
-                  style={({ pressed, hovered }: any) => [
-                    styles.controlBtn,
-                    styles.controlBtnStart,
-                    !hasActiveTweaks && styles.controlBtnDisabled,
-                    (pressed || hovered) && hasActiveTweaks && { opacity: 0.9 },
-                    pressed && { transform: [{ translateY: 1 }] },
-                  ]}
-                >
-                  <Text style={styles.controlBtnStartText}>
-                    ↻ RESET METER TO PURE SUNNY 16
-                  </Text>
-                  <Text style={styles.controlBtnStartSub}>
-                    Keep current camera/lens/film · Clear filters, push & DoF locks
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  nativeID="btn-reset-full-board"
-                  onPress={resetFullBoard}
-                  style={({ pressed, hovered }: any) => [
-                    styles.controlBtn,
-                    styles.controlBtnResetAll,
-                    !hasActiveTweaks && isDefaultGear && styles.controlBtnDisabled,
-                    (pressed || hovered) && (hasActiveTweaks || !isDefaultGear) && { backgroundColor: C.ink },
-                    pressed && { transform: [{ translateY: 1 }] },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.controlBtnResetText,
-                      !hasActiveTweaks && isDefaultGear && { color: C.brown },
-                    ]}
-                  >
-                    ⟲ RESET ENTIRE APP (DEFAULT GEAR)
-                  </Text>
-                  <Text style={styles.controlBtnResetSub}>
-                    Reset film ISO, camera, lens & all settings to defaults
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Exposure table */}
-            <View style={styles.tableWrap} role="region" aria-label="Exposure Table and Lighting Conditions">
-              <View style={styles.tableHeader}>
-                <Text
-                  style={styles.tableHeaderText}
-                  accessibilityRole="header"
-                  aria-level={2}
-                >
-                  EXPOSURE TABLE
-                </Text>
-                <View style={styles.headerBadges}>
-                  {lightConditionedAperture !== undefined && (
-                    <Pressable
-                      nativeID="reset-aperture-lock"
-                      accessibilityRole="button"
-                      aria-label={`Remove Depth of Field lock at ${formatAperture(lightConditionedAperture)}`}
-                      onPress={() => setPreferredAperture(undefined)}
-                      style={[styles.isoBox, { backgroundColor: C.mustard }]}
-                    >
-                      <Text style={styles.isoBoxText}>
-                        DOF LOCK {formatAperture(lightConditionedAperture)} ✕
-                      </Text>
-                    </Pressable>
-                  )}
-                  {lightDirId !== 'front' && (
-                    <Pressable
-                      nativeID="reset-light-dir"
-                      accessibilityRole="button"
-                      aria-label={`Reset light direction from ${activeLightDir.shortName} to Frontlit`}
-                      onPress={() => setLightDirId('front')}
-                      style={[styles.isoBox, { backgroundColor: C.mustard }]}
-                    >
-                      <Text style={styles.isoBoxText}>
-                        {activeLightDir.shortName} ✕
-                      </Text>
-                    </Pressable>
-                  )}
-                  {activeGritty.id !== 'off' && (
-                    <View style={[styles.isoBox, { backgroundColor: C.orange }]}>
-                      <Text style={[styles.isoBoxText, { color: C.paper }]}>
-                        {activeGritty.shortName} · EI {Math.round(iso * 2 ** -activeGritty.evShiftStops)}
-                      </Text>
-                    </View>
-                  )}
-                  {activeFilter.hasFilters && (
-                    <Pressable
-                      nativeID="reset-filter-stack"
-                      accessibilityRole="button"
-                      aria-label={`Remove active lens filter ${activeFilter.shortName}`}
-                      onPress={clearAllFilters}
-                      style={[styles.isoBox, { backgroundColor: activeFilter.color }]}
-                    >
-                      <Text style={styles.isoBoxText}>
-                        {activeFilter.shortName} ({activeFilter.factorLabel}) ✕
-                      </Text>
-                    </Pressable>
-                  )}
-                  <View style={styles.isoBox}>
-                    <Text style={styles.isoBoxText}>
-                      {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.cameraLine}>
-                {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
-                {get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
-                  ? ` (≈${get35mmEquivalentFocalLength(camera, lens)}mm 35mm-eq)`
-                  : ''}
-                {activeFilmStock ? ` · ${activeFilmStock.name}` : ''}
-                {lightDirId !== 'front' ? ` · ${activeLightDir.name}` : ''}
-                {activeFilter.hasFilters ? ` · ${activeFilter.name}` : ''}
-                {activeGritty.id !== 'off' ? ` · ${activeGritty.name}` : ''}
-                {lightConditionedAperture !== undefined ? ` · Priority: ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})` : ''}
-              </Text>
-
-              {/* Subject Light Direction & Scene / Handheld Toolbar */}
-              <View style={styles.fieldToolbar} nativeID="field-toolbar">
-                <View style={styles.toolbarGroup}>
-                  <Text
-                    style={styles.toolbarLabel}
-                    accessibilityRole={'label' as any}
-                  >
-                    SUBJECT LIGHT DIRECTION (OPENS APERTURE / SHUTTER WHEN SUN IS AT SIDE OR BEHIND SUBJECT):
-                  </Text>
-                  <View style={styles.toolbarRow}>
-                    {lightDirections.map((dir) => {
-                      const active = dir.id === lightDirId;
-                      return (
-                        <Pressable
-                          key={dir.id}
-                          nativeID={`light-dir-${dir.id}`}
-                          accessibilityRole="button"
-                          aria-label={`${dir.name} (${dir.badge})`}
-                          onPress={() => setLightDirId(dir.id)}
-                          style={[styles.dirPill, active && styles.dirPillActive]}
-                        >
-                          <Text style={[styles.dirPillTitle, active && { color: C.paper }]}>
-                            {dir.shortName}
-                          </Text>
-                          <Text style={[styles.dirPillSub, active && { color: C.mustard }]}>
-                            {dir.badge}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.toolbarGroup}>
-                  <Text
-                    style={styles.toolbarLabel}
-                    accessibilityRole={'label' as any}
-                  >
-                    LIGHTING SCENES TO DISPLAY & HANDHELD ANTI-SHAKE SHUTTER PRIORITY (1/FOCAL LENGTH RULE):
-                  </Text>
-                  <View style={styles.toolbarRow}>
-                    {[
-                      {
-                        id: 'all' as const,
-                        label: 'SHOW ALL SCENES (10)',
-                        sub: 'Full day-to-night table',
-                      },
-                      {
-                        id: 'daylight' as const,
-                        label: 'DAYLIGHT ONLY (6)',
-                        sub: 'Snow, sun, clouds & shade',
-                      },
-                      {
-                        id: 'lowlight' as const,
-                        label: 'GOLDEN / INDOOR / NIGHT (4)',
-                        sub: 'Sunset, dusk, window & neon',
-                      },
-                    ].map((tab) => {
-                      const active = sceneCategory === tab.id;
-                      return (
-                        <Pressable
-                          key={tab.id}
-                          nativeID={`scene-tab-${tab.id}`}
-                          accessibilityRole="button"
-                          aria-label={`${tab.label}: ${tab.sub}`}
-                          onPress={() => {
-                            setSceneCategory(tab.id);
-                            if (tab.id !== 'all' && activeCondition.category !== tab.id) {
-                              const firstMatch = conditions.find((c) => c.category === tab.id);
-                              if (firstMatch) setConditionId(firstMatch.id);
-                            }
-                          }}
-                          style={[styles.sceneTabPill, active && styles.sceneTabPillActive]}
-                        >
-                          <Text style={[styles.sceneTabText, active && { color: C.paper }]}>
-                            {tab.label}
-                          </Text>
-                          <Text style={[styles.sceneTabSub, active && { color: C.paperDark }]}>
-                            {tab.sub}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                    <Pressable
-                      nativeID="toggle-handheld-guard"
-                      accessibilityRole="button"
-                      aria-label={`Toggle 1 over focal length handheld priority guard, currently ${prioritizeHandheld ? 'on' : 'off'}`}
-                      onPress={() => setPrioritizeHandheld((v) => !v)}
-                      style={[
-                        styles.handheldTogglePill,
-                        prioritizeHandheld && styles.handheldTogglePillActive,
-                      ]}
-                    >
-                      <View style={styles.handheldBtnRow}>
-                        <HandSvgIcon
-                          size={18}
-                          color={prioritizeHandheld ? C.paper : C.ink}
-                        />
-                        <View>
-                          <Text
-                            style={[
-                              styles.handheldToggleText,
-                              prioritizeHandheld && { color: C.paper },
-                            ]}
-                          >
-                            1/F HANDHELD PRIORITY: {prioritizeHandheld ? 'ON (AVOID CAMERA SHAKE)' : 'OFF'}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.handheldToggleSub,
-                              prioritizeHandheld && { color: C.paperDark },
-                            ]}
-                          >
-                            {prioritizeHandheld
-                              ? `Keeping shutter ≥ 1/${Math.max(30, lens.focalLength, get35mmEquivalentFocalLength(camera, lens))}s for ${lens.focalLength}mm lens`
-                              : `Tap to keep shutter ≥ 1/${Math.max(30, lens.focalLength, get35mmEquivalentFocalLength(camera, lens))}s for sharp handheld shots`}
-                          </Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              {/* UX #3: Live Viewfinder Hero Strip above the 2-Column Mobile Scene Grid */}
-              {(() => {
-                const heroRec = recommend(
-                  iso,
-                  activeCondition,
-                  camera,
-                  lens,
-                  totalPositiveStops,
-                  activeGritty.evShiftStops,
-                  validPreferredAperture,
-                  prioritizeHandheld,
-                );
-                const heroGrit =
-                  activeGritty.id === 'kinetic' && validPreferredAperture === undefined
-                    ? recommendGritty(iso, activeCondition, camera, lens, totalPositiveStops, activeGritty)
-                    : null;
-                const heroBest = heroGrit?.dragSetting ?? heroRec.best;
-                const heroShake = heroBest
-                  ? evaluateHandheldSafety(heroBest.shutter, camera, lens)
-                  : null;
-                return (
-                  <View style={styles.viewfinderHeroStrip} nativeID="viewfinder-hero-strip">
-                    <View style={styles.viewfinderSceneCol}>
-                      <Text style={styles.viewfinderKicker}>
-                        SELECTED LIGHTING SCENE · TAP ANY WEATHER CARD BELOW TO CHANGE
-                      </Text>
-                      <Text
-                        style={styles.viewfinderSceneTitle}
-                        accessibilityRole="header"
-                        aria-level={3}
-                      >
-                        {activeCondition.title.toUpperCase()}
-                      </Text>
-                      <Text style={styles.viewfinderSceneSub} numberOfLines={1}>
-                        {activeCondition.hint}
-                      </Text>
-                    </View>
-                    {heroBest ? (
-                      <View style={styles.viewfinderDialsRow}>
-                        <View
-                          style={styles.viewfinderDialBox}
-                          aria-label={`Recommended aperture: ${formatAperture(heroBest.aperture)}`}
-                        >
-                          <Text style={styles.viewfinderDialLabel}>SET APERTURE</Text>
-                          <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
-                            {formatAperture(heroBest.aperture)}
-                          </Text>
-                        </View>
-                        <View
-                          style={[styles.viewfinderDialBox, { backgroundColor: C.orange }]}
-                          aria-label={`Recommended shutter speed: ${formatShutter(heroBest.shutter)}`}
-                        >
-                          <Text style={styles.viewfinderDialLabel}>SET SHUTTER</Text>
-                          <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
-                            {formatShutter(heroBest.shutter)}
-                          </Text>
-                        </View>
-                        {heroShake && (
-                          <View
-                            style={[
-                              styles.viewfinderShakePill,
-                              heroShake.status === 'safe'
-                                ? { backgroundColor: C.teal }
-                                : heroShake.status === 'borderline'
-                                  ? { backgroundColor: C.mustard }
-                                  : { backgroundColor: C.orange },
-                            ]}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                              <HandSvgIcon
-                                size={13}
-                                color={heroShake.status === 'borderline' ? C.ink : C.paper}
-                              />
-                              <Text
-                                style={[
-                                  styles.viewfinderShakeText,
-                                  heroShake.status === 'borderline' && { color: C.ink },
-                                ]}
-                              >
-                                {heroShake.status === 'safe'
-                                  ? 'HANDHELD SAFE'
-                                  : heroShake.status === 'borderline'
-                                    ? 'BRACE HANDS'
-                                    : 'USE TRIPOD'}
+                        {activeFilmStock && (
+                          <View style={styles.filmStockBanner}>
+                            <View style={styles.filmStockBannerHead}>
+                              <Text style={styles.filmStockBannerTitle}>
+                                {activeFilmStock.name.toUpperCase()} · {activeFilmStock.process.toUpperCase()}
                               </Text>
+                              <View style={styles.filmStockBadgesRow}>
+                                <View style={styles.filmLatitudeBadge}>
+                                  <Text style={styles.filmLatitudeBadgeText}>
+                                    LATITUDE: +{activeFilmStock.latitudeOverStops} / −{activeFilmStock.latitudeUnderStops} EV
+                                  </Text>
+                                </View>
+                                <View style={[styles.filmLatitudeBadge, { backgroundColor: C.teal }]}>
+                                  <Text style={[styles.filmLatitudeBadgeText, { color: C.paper }]}>
+                                    GRAIN: {activeFilmStock.grain.toUpperCase()}
+                                  </Text>
+                                </View>
+                              </View>
                             </View>
+                            <Text style={styles.filmStockCharText}>{activeFilmStock.character}</Text>
+                            <Text style={styles.filmStockTipText}>
+                              <Text style={{ fontFamily: display, color: C.orange, fontSize: 13 }}>FIELD TIP: </Text>
+                              {activeFilmStock.fieldTip}
+                            </Text>
+                            <Text style={styles.filmStockTipText}>
+                              <Text style={{ fontFamily: display, color: C.mustard, fontSize: 13 }}>
+                                LONG EXPOSURE RECIPROCITY (≥1S):{' '}
+                              </Text>
+                              {activeFilmStock.reciprocityNote}
+                            </Text>
                           </View>
                         )}
                       </View>
-                    ) : null}
+                    )}
                   </View>
-                );
-              })()}
 
-              {/* UX #6: 2-Column Mobile Grid (50%) / 3-Column Desktop Grid (33.333%) */}
-              <View style={[styles.grid, { flexDirection: 'row', flexWrap: 'wrap' }]}>
-                {conditions
-                  .filter((cond) => sceneCategory === 'all' || cond.category === sceneCategory)
-                  .map((cond) => {
-                    const r = recommend(
-                      iso,
-                      cond,
-                      camera,
-                      lens,
-                      totalPositiveStops,
-                      activeGritty.evShiftStops,
-                      validPreferredAperture,
-                      prioritizeHandheld,
-                    );
-                    const gr =
-                      activeGritty.id === 'kinetic' && validPreferredAperture === undefined
-                        ? recommendGritty(iso, cond, camera, lens, totalPositiveStops, activeGritty)
-                        : null;
-                    const cellBest = gr?.dragSetting ?? r.best;
-                    const active = cond.id === conditionId;
-                    const shake = cellBest
-                      ? evaluateHandheldSafety(cellBest.shutter, camera, lens)
-                      : null;
-                    return (
-                      <Pressable
-                        key={cond.id}
-                        nativeID={`condition-${cond.id}`}
-                        accessibilityRole="button"
-                        aria-label={`${cond.title} (${cond.hint})${cellBest ? `: ${formatAperture(cellBest.aperture)} at ${formatShutter(cellBest.shutter)}` : ''}`}
-                        onPress={() => setConditionId(cond.id)}
+                  <Section step="2" title="Camera Brand">
+                    {brands.map((b) => (
+                      <Chip key={b.id} id={`brand-${b.id}`} label={b.name} sub={b.country} active={brandId === b.id} onPress={() => selectBrand(b.id)} />
+                    ))}
+                  </Section>
+
+                  {/* UX #2: Step 3 with Decade Filter Pills & Quick Search */}
+                  <View
+                    nativeID="section-step-3"
+                    {...(Platform.OS === 'web' ? { id: 'section-step-3' } : {})}
+                    style={styles.section}
+                    role="region"
+                    aria-label={`Step 3: Camera Model ${activeBrandName ? `(${activeBrandName})` : ''}`}
+                  >
+                    <View style={styles.sectionHead}>
+                      <View style={styles.stepBadge}><Text style={styles.stepText}>3</Text></View>
+                      <Text
+                        style={styles.sectionTitle}
+                        accessibilityRole="header"
+                        aria-level={2}
+                      >
+                        Camera Model {activeBrandName ? `(${activeBrandName})` : ''}
+                      </Text>
+                      <View style={styles.rule} />
+                    </View>
+
+                    {!brandId ? (
+                      <View style={styles.guidanceCard}>
+                        <Text style={styles.guidanceTitle}>← SELECT A CAMERA BRAND IN STEP 2 FIRST</Text>
+                        <Text style={styles.guidanceSub}>
+                          Choose Leica, Nikon, Canon, Olympus, Pentax, Yashica, Minolta, Hasselblad, or Voigtländer above to browse vintage 35mm bodies.
+                        </Text>
+                      </View>
+                    ) : (
+                      <>
+                        {brandCameras.length > 6 && (
+                          <View style={styles.cameraFilterBar} nativeID="camera-filter-bar">
+                            <View style={styles.decadePillsRow}>
+                              {[
+                                { id: 'all' as const, label: `ALL (${brandCameras.length})` },
+                                { id: '60s' as const, label: '50s–60s' },
+                                { id: '70s' as const, label: '1970s' },
+                                { id: '80s' as const, label: '1980s' },
+                                { id: '90s' as const, label: '1990s+' },
+                              ].map((dec) => {
+                                const active = cameraDecade === dec.id;
+                                return (
+                                  <Pressable
+                                    key={dec.id}
+                                    nativeID={`decade-${dec.id}`}
+                                    accessibilityRole="button"
+                                    aria-label={`Filter ${activeBrandName} cameras by decade: ${dec.label}`}
+                                    onPress={() => setCameraDecade(dec.id)}
+                                    style={[styles.decadePill, active && styles.decadePillActive]}
+                                  >
+                                    <Text style={[styles.decadePillText, active && { color: C.paper }]}>
+                                      {dec.label}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                            <View style={styles.searchBoxWrap}>
+                              <TextInput
+                                nativeID="camera-search-input"
+                                aria-label={`Search ${activeBrandName} camera model or year`}
+                                value={cameraSearch}
+                                onChangeText={setCameraSearch}
+                                placeholder={`Search ${activeBrandName} model or year...`}
+                                placeholderTextColor={C.brown}
+                                style={styles.searchInput}
+                              />
+                              {cameraSearch.length > 0 && (
+                                <Pressable
+                                  nativeID="clear-camera-search"
+                                  accessibilityRole="button"
+                                  aria-label="Clear camera search"
+                                  onPress={() => setCameraSearch('')}
+                                  style={styles.searchClearBtn}
+                                >
+                                  <Text style={styles.searchClearText}>✕</Text>
+                                </Pressable>
+                              )}
+                            </View>
+                          </View>
+                        )}
+                        <View style={styles.chipRow}>
+                          {filteredBrandCameras.map((c) => (
+                            <Chip
+                              key={c.id}
+                              id={`camera-${c.id}`}
+                              label={c.name}
+                              sub={`${c.year} · ${c.format}${c.mount === 'fixed' ? ' · Fixed Lens' : ''}`}
+                              active={camera?.id === c.id}
+                              onPress={() => {
+                                setCameraId(c.id);
+                                const isFixed = c.mount === 'fixed' && c.fixedLensIds && c.fixedLensIds.length > 0;
+                                if (isFixed) {
+                                  setLensId(c.fixedLensIds![0]);
+                                } else {
+                                  setLensId(undefined);
+                                }
+                                setPreferredAperture(undefined);
+                                setTimeout(() => {
+                                  if (isFixed) {
+                                    scrollToElement('btn-collapse-after-lens', 'center');
+                                  } else {
+                                    scrollToElement('section-step-4', 'start');
+                                  }
+                                }, 150);
+                              }}
+                            />
+                          ))}
+                        </View>
+                      </>
+                    )}
+                  </View>
+
+                  <Section step="4" title={camera?.mount === 'fixed' ? 'Lens (Integrated)' : 'Lens'}>
+                    {!camera ? (
+                      <View style={styles.guidanceCard}>
+                        <Text style={styles.guidanceTitle}>⚠ SELECT A CAMERA BODY IN STEP 3 FIRST</Text>
+                        <Text style={styles.guidanceSub}>
+                          Lenses depend on the camera&apos;s lens mount (e.g. Nikon F, Canon FD, Leica M, Pentax K, or M42). Once you choose a body, its compatible vintage prime &amp; zoom lenses will appear here.
+                        </Text>
+                      </View>
+                    ) : camera.mount === 'fixed' ? (
+                      <View style={[styles.guidanceCard, { borderColor: C.teal }]}>
+                        <Text style={[styles.guidanceTitle, { color: C.teal }]}>✓ FIXED INTEGRATED LENS</Text>
+                        <Text style={styles.guidanceSub}>
+                          The {camera.name} features an integrated, non-interchangeable lens ({lens?.name ?? 'Fixed Lens'}). Optical depth of field, aperture range, and shutter limits are automatically calibrated.
+                        </Text>
+                      </View>
+                    ) : cameraLenses.length === 0 ? (
+                      <Text style={styles.body}>No lenses listed for this mount yet — add one in data/lenses.ts</Text>
+                    ) : (
+                      cameraLenses.map((l) => {
+                        const eqMm = camera ? get35mmEquivalentFocalLength(camera, l) : l.focalLength;
+                        const eqSuffix = eqMm !== l.focalLength ? ` · ≈${eqMm}mm eq.` : '';
+                        return (
+                          <Chip
+                            key={l.id}
+                            id={`lens-${l.id}`}
+                            label={l.name}
+                            sub={`f/${l.apertures[0]} – f/${l.apertures[l.apertures.length - 1]}${eqSuffix}`}
+                            active={lens?.id === l.id}
+                            onPress={() => {
+                              setLensId(l.id);
+                              setPreferredAperture(undefined);
+                              setTimeout(() => {
+                                scrollToElement('btn-collapse-after-lens', 'center');
+                              }, 150);
+                            }}
+                          />
+                        );
+                      })
+                    )}
+                  </Section>
+
+                  <Pressable
+                    nativeID="btn-collapse-after-lens"
+                    {...(Platform.OS === 'web' ? { id: 'btn-collapse-after-lens' } : {})}
+                    accessibilityRole="button"
+                    aria-label="Done selecting gear. Tap to hide gear steps and view exposure table."
+                    onPress={() => {
+                      if (isGearComplete) {
+                        setGearCollapsed(true);
+                        setTimeout(() => scrollToElement('board-control-bar', 'start'), 80);
+                      }
+                    }}
+                    style={[
+                      styles.lockRigBottomBanner,
+                      !isGearComplete && styles.lockRigBottomBannerDisabled,
+                      isGearComplete && styles.lockRigBottomBannerReady,
+                    ]}
+                  >
+                    <View style={styles.lockRigContentRow}>
+                      <Animated.Text
                         style={[
-                          styles.cell,
-                          { width: wide ? '33.333%' : '50%' },
-                          compact && { padding: 8, gap: 8 },
-                          cond.category === 'lowlight' && !active && styles.cellLowLight,
-                          active && styles.cellActive,
+                          styles.lockRigArrow,
+                          isGearComplete && {
+                            transform: [{ scale: pulseAnim }],
+                            color: pulseGlow.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [C.mustard, C.orange],
+                            }),
+                          },
                         ]}
                       >
-                        <View style={[styles.iconBox, compact && { width: 36, height: 36 }]}>
-                          <WeatherIcon id={cond.id} size={compact ? 32 : 44} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <View style={styles.condTitleRow}>
-                            <Text style={[styles.condTitle, compact && { fontSize: 17 }]}>
-                              {cond.title}
+                        ▲
+                      </Animated.Text>
+                      <Text
+                        style={[
+                          styles.lockRigBottomText,
+                          isGearComplete && styles.lockRigBottomTextReady,
+                        ]}
+                      >
+                        {isGearComplete
+                          ? ' DONE SELECTING GEAR — HIDE CAMERA / LENS / FILM STEPS & JUMP TO EXPOSURE TABLE '
+                          : '⚠ COMPLETE STEPS 1–4 TO ACTIVATE EXPOSURE TABLE & LIVE DIALS'}
+                      </Text>
+                      <Animated.Text
+                        style={[
+                          styles.lockRigArrow,
+                          isGearComplete && {
+                            transform: [{ scale: pulseAnim }],
+                            color: pulseGlow.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [C.mustard, C.orange],
+                            }),
+                          },
+                        ]}
+                      >
+                        ▲
+                      </Animated.Text>
+                    </View>
+
+                    <Text style={styles.lockRigBottomSub}>
+                      {isGearComplete
+                        ? `Loaded: ${activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`} · ${activeBrandName} ${camera?.name} · ${lens?.name} — Tap to close and jump to exposure table`
+                        : `Pending: ${[
+                          iso === undefined ? 'Step 1 (Film/ISO)' : null,
+                          !camera ? 'Steps 2–3 (Camera Body)' : null,
+                          !lens ? 'Step 4 (Lens)' : null,
+                        ].filter(Boolean).join(' · ')}`}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {!camera || !lens || iso === undefined ? (
+                <View style={styles.gearPromptCard} nativeID="gear-prompt-card">
+                  <View style={styles.gearPromptHead}>
+                    <View style={styles.gearPromptIconBadge}>
+                      <CameraSvgIcon size={24} color={C.mustard} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.gearPromptTitle}>
+                        CALCULATOR STANDBY · LOAD YOUR 35MM GEAR
+                      </Text>
+                      <Text style={styles.gearPromptSub}>
+                        Select your film stock (ISO), camera body, and lens in Steps 1–4 above to calibrate accurate optical exposure, mechanical shutter limits, and circle-of-confusion depth of field.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.gearPromptGrid}>
+                    <Pressable
+                      accessibilityRole="button"
+                      aria-label="Pending: Select Film Stock or ISO in Step 1"
+                      onPress={() => {
+                        setGearCollapsed(false);
+                        setTimeout(() => scrollToElement('section-step-1', 'start'), 80);
+                      }}
+                      style={[styles.gearPromptItem, iso !== undefined && styles.gearPromptItemDone]}
+                    >
+                      <Text style={styles.gearPromptItemStep}>STEP 1 · FILM</Text>
+                      <Text style={[styles.gearPromptItemVal, iso === undefined && { color: C.orange }]}>
+                        {iso !== undefined
+                          ? (activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`)
+                          : 'SELECT FILM / ISO ▾'}
+                      </Text>
+                      <Text style={styles.gearPromptItemHint}>
+                        {iso !== undefined ? '✓ Sensitivity calibrated' : 'Tap to pick ISO 25 – 3200'}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      aria-label="Pending: Select Camera Brand and Model in Steps 2-3"
+                      onPress={() => {
+                        setGearCollapsed(false);
+                        setTimeout(() => scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start'), 80);
+                      }}
+                      style={[styles.gearPromptItem, camera !== undefined && styles.gearPromptItemDone]}
+                    >
+                      <Text style={styles.gearPromptItemStep}>STEPS 2 & 3 · CAMERA</Text>
+                      <Text style={[styles.gearPromptItemVal, !camera && { color: C.orange }]}>
+                        {camera !== undefined
+                          ? `${activeBrandName} ${camera.name}`
+                          : 'SELECT CAMERA BODY ▾'}
+                      </Text>
+                      <Text style={styles.gearPromptItemHint}>
+                        {camera !== undefined ? `✓ ${camera.format} (${camera.year})` : 'Choose brand & model'}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      aria-label="Pending: Select Lens in Step 4"
+                      onPress={() => {
+                        setGearCollapsed(false);
+                        setTimeout(() => {
+                          if (!camera) {
+                            scrollToElement(brandId ? 'section-step-3' : 'section-step-2', 'start');
+                          } else {
+                            scrollToElement('section-step-4', 'start');
+                          }
+                        }, 80);
+                      }}
+                      style={[styles.gearPromptItem, lens !== undefined && styles.gearPromptItemDone]}
+                    >
+                      <Text style={styles.gearPromptItemStep}>STEP 4 · LENS</Text>
+                      <Text style={[styles.gearPromptItemVal, !lens && { color: C.orange }]}>
+                        {lens !== undefined
+                          ? lens.name
+                          : camera
+                            ? 'SELECT LENS ▾'
+                            : 'CAMERA REQUIRED FIRST'}
+                      </Text>
+                      <Text style={styles.gearPromptItemHint}>
+                        {lens !== undefined
+                          ? `✓ ${lens.focalLength}mm f/${lens.apertures[0]}`
+                          : camera
+                            ? 'Choose compatible mount lens'
+                            : 'Select camera in Step 3'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  {/* Board Control Bar (Start / Reset before Exposure Table) */}
+                  <View
+                    style={styles.controlBar}
+                    nativeID="board-control-bar"
+                    {...(Platform.OS === 'web' ? { id: 'board-control-bar' } : {})}
+                  >
+                    <View style={styles.controlBarInfo}>
+                      <View style={styles.controlStatusRow}>
+                        <View
+                          style={[
+                            styles.controlStatusDot,
+                            { backgroundColor: hasActiveTweaks ? C.orange : C.teal },
+                          ]}
+                        />
+                        <Text style={styles.controlBarTitle}>
+                          {hasActiveTweaks
+                            ? 'CUSTOM EXPOSURE MODIFIERS ACTIVE'
+                            : 'BASELINE · PURE SUNNY 16 READY'}
+                        </Text>
+                      </View>
+                      <Text style={styles.controlBarSub}>
+                        {activeFilmStock ? `${activeFilmStock.name} (ISO ${iso})` : `ISO ${iso}`} ·{' '}
+                        {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
+                        {lightDirId !== 'front' ? ` · ${activeLightDir.shortName}` : ''}
+                        {activeFilter.hasFilters ? ` · ${activeFilter.shortName} (${activeFilter.factorLabel})` : ''}
+                        {grittyId !== 'off' ? ` · ${activeGritty.shortName}` : ''}
+                        {prioritizeHandheld ? ' · 1/f Handheld Guard' : ''}
+                        {lightConditionedAperture !== undefined
+                          ? ` · Lock ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})`
+                          : ''}
+                      </Text>
+                    </View>
+
+                    <View style={styles.controlBarButtons}>
+                      <Pressable
+                        nativeID="btn-start-pure-sunny16"
+                        onPress={resetTweaksToSunny16}
+                        style={({ pressed, hovered }: any) => [
+                          styles.controlBtn,
+                          styles.controlBtnStart,
+                          !hasActiveTweaks && styles.controlBtnDisabled,
+                          (pressed || hovered) && hasActiveTweaks && { opacity: 0.9 },
+                          pressed && { transform: [{ translateY: 1 }] },
+                        ]}
+                      >
+                        <Text style={styles.controlBtnStartText}>
+                          ↻ RESET METER TO PURE SUNNY 16
+                        </Text>
+                        <Text style={styles.controlBtnStartSub}>
+                          Keep current camera/lens/film · Clear filters, push & DoF locks
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        nativeID="btn-reset-full-board"
+                        onPress={resetFullBoard}
+                        style={({ pressed, hovered }: any) => [
+                          styles.controlBtn,
+                          styles.controlBtnResetAll,
+                          !hasActiveTweaks && isDefaultGear && styles.controlBtnDisabled,
+                          (pressed || hovered) && (hasActiveTweaks || !isDefaultGear) && { backgroundColor: C.ink },
+                          pressed && { transform: [{ translateY: 1 }] },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.controlBtnResetText,
+                            !hasActiveTweaks && isDefaultGear && { color: C.brown },
+                          ]}
+                        >
+                          ⟲ RESET ENTIRE APP (DEFAULT GEAR)
+                        </Text>
+                        <Text style={styles.controlBtnResetSub}>
+                          Reset film ISO, camera, lens & all settings to defaults
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {/* Exposure table */}
+                  <View style={styles.tableWrap} role="region" aria-label="Exposure Table and Lighting Conditions">
+                    <View style={styles.tableHeader}>
+                      <Text
+                        style={styles.tableHeaderText}
+                        accessibilityRole="header"
+                        aria-level={2}
+                      >
+                        EXPOSURE TABLE
+                      </Text>
+                      <View style={styles.headerBadges}>
+                        {lightConditionedAperture !== undefined && (
+                          <Pressable
+                            nativeID="reset-aperture-lock"
+                            accessibilityRole="button"
+                            aria-label={`Remove Depth of Field lock at ${formatAperture(lightConditionedAperture)}`}
+                            onPress={() => setPreferredAperture(undefined)}
+                            style={[styles.isoBox, { backgroundColor: C.mustard }]}
+                          >
+                            <Text style={styles.isoBoxText}>
+                              DOF LOCK {formatAperture(lightConditionedAperture)} ✕
                             </Text>
-                            {cond.category === 'lowlight' && (
-                              <View style={styles.lowLightTag}>
-                                <Text style={styles.lowLightTagText}>LOW</Text>
-                              </View>
-                            )}
+                          </Pressable>
+                        )}
+                        {lightDirId !== 'front' && (
+                          <Pressable
+                            nativeID="reset-light-dir"
+                            accessibilityRole="button"
+                            aria-label={`Reset light direction from ${activeLightDir.shortName} to Frontlit`}
+                            onPress={() => setLightDirId('front')}
+                            style={[styles.isoBox, { backgroundColor: C.mustard }]}
+                          >
+                            <Text style={styles.isoBoxText}>
+                              {activeLightDir.shortName} ✕
+                            </Text>
+                          </Pressable>
+                        )}
+                        {activeGritty.id !== 'off' && (
+                          <View style={[styles.isoBox, { backgroundColor: C.orange }]}>
+                            <Text style={[styles.isoBoxText, { color: C.paper }]}>
+                              {activeGritty.shortName} · EI {Math.round(iso * 2 ** -activeGritty.evShiftStops)}
+                            </Text>
                           </View>
-                          {!compact && <Text style={styles.condHint}>{cond.hint}</Text>}
-                          {cellBest ? (
-                            <View style={styles.condValueRow}>
-                              <Text style={[styles.condValue, compact && { fontSize: 14 }]}>
-                                {formatAperture(cellBest.aperture)} · {formatShutter(cellBest.shutter)}
-                              </Text>
-                              {shake && (
+                        )}
+                        {activeFilter.hasFilters && (
+                          <Pressable
+                            nativeID="reset-filter-stack"
+                            accessibilityRole="button"
+                            aria-label={`Remove active lens filter ${activeFilter.shortName}`}
+                            onPress={clearAllFilters}
+                            style={[styles.isoBox, { backgroundColor: activeFilter.color }]}
+                          >
+                            <Text style={styles.isoBoxText}>
+                              {activeFilter.shortName} ({activeFilter.factorLabel}) ✕
+                            </Text>
+                          </Pressable>
+                        )}
+                        <View style={styles.isoBox}>
+                          <Text style={styles.isoBoxText}>
+                            {activeFilmStock ? activeFilmStock.shortName : `ISO ${iso}`}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <Text style={styles.cameraLine}>
+                      {brands.find((b) => b.id === brandId)?.name} {camera.name} · {lens.name}
+                      {get35mmEquivalentFocalLength(camera, lens) !== lens.focalLength
+                        ? ` (≈${get35mmEquivalentFocalLength(camera, lens)}mm 35mm-eq)`
+                        : ''}
+                      {activeFilmStock ? ` · ${activeFilmStock.name}` : ''}
+                      {lightDirId !== 'front' ? ` · ${activeLightDir.name}` : ''}
+                      {activeFilter.hasFilters ? ` · ${activeFilter.name}` : ''}
+                      {activeGritty.id !== 'off' ? ` · ${activeGritty.name}` : ''}
+                      {lightConditionedAperture !== undefined ? ` · Priority: ${formatAperture(lightConditionedAperture)} (${isHyperfocalMode ? 'Hyperfocal' : `${focusDistanceM}m`})` : ''}
+                    </Text>
+
+                    {/* Subject Light Direction & Scene / Handheld Toolbar */}
+                    <View style={styles.fieldToolbar} nativeID="field-toolbar">
+                      <View style={styles.toolbarGroup}>
+                        <Text
+                          style={styles.toolbarLabel}
+                          accessibilityRole={'label' as any}
+                        >
+                          SUBJECT LIGHT DIRECTION (OPENS APERTURE / SHUTTER WHEN SUN IS AT SIDE OR BEHIND SUBJECT):
+                        </Text>
+                        <View style={styles.toolbarRow}>
+                          {lightDirections.map((dir) => {
+                            const active = dir.id === lightDirId;
+                            return (
+                              <Pressable
+                                key={dir.id}
+                                nativeID={`light-dir-${dir.id}`}
+                                accessibilityRole="button"
+                                aria-label={`${dir.name} (${dir.badge})`}
+                                onPress={() => setLightDirId(dir.id)}
+                                style={[styles.dirPill, active && styles.dirPillActive]}
+                              >
+                                <Text style={[styles.dirPillTitle, active && { color: C.paper }]}>
+                                  {dir.shortName}
+                                </Text>
+                                <Text style={[styles.dirPillSub, active && { color: C.mustard }]}>
+                                  {dir.badge}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      <View style={styles.toolbarGroup}>
+                        <Text
+                          style={styles.toolbarLabel}
+                          accessibilityRole={'label' as any}
+                        >
+                          LIGHTING SCENES TO DISPLAY & HANDHELD ANTI-SHAKE SHUTTER PRIORITY (1/FOCAL LENGTH RULE):
+                        </Text>
+                        <View style={styles.toolbarRow}>
+                          {[
+                            {
+                              id: 'all' as const,
+                              label: 'SHOW ALL SCENES (10)',
+                              sub: 'Full day-to-night table',
+                            },
+                            {
+                              id: 'daylight' as const,
+                              label: 'DAYLIGHT ONLY (6)',
+                              sub: 'Snow, sun, clouds & shade',
+                            },
+                            {
+                              id: 'lowlight' as const,
+                              label: 'GOLDEN / INDOOR / NIGHT (4)',
+                              sub: 'Sunset, dusk, window & neon',
+                            },
+                          ].map((tab) => {
+                            const active = sceneCategory === tab.id;
+                            return (
+                              <Pressable
+                                key={tab.id}
+                                nativeID={`scene-tab-${tab.id}`}
+                                accessibilityRole="button"
+                                aria-label={`${tab.label}: ${tab.sub}`}
+                                onPress={() => {
+                                  setSceneCategory(tab.id);
+                                  if (tab.id !== 'all' && activeCondition.category !== tab.id) {
+                                    const firstMatch = conditions.find((c) => c.category === tab.id);
+                                    if (firstMatch) setConditionId(firstMatch.id);
+                                  }
+                                }}
+                                style={[styles.sceneTabPill, active && styles.sceneTabPillActive]}
+                              >
+                                <Text style={[styles.sceneTabText, active && { color: C.paper }]}>
+                                  {tab.label}
+                                </Text>
+                                <Text style={[styles.sceneTabSub, active && { color: C.paperDark }]}>
+                                  {tab.sub}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                          <Pressable
+                            nativeID="toggle-handheld-guard"
+                            accessibilityRole="button"
+                            aria-label={`Toggle 1 over focal length handheld priority guard, currently ${prioritizeHandheld ? 'on' : 'off'}`}
+                            onPress={() => setPrioritizeHandheld((v) => !v)}
+                            style={[
+                              styles.handheldTogglePill,
+                              prioritizeHandheld && styles.handheldTogglePillActive,
+                            ]}
+                          >
+                            <View style={styles.handheldBtnRow}>
+                              <HandSvgIcon
+                                size={18}
+                                color={prioritizeHandheld ? C.paper : C.ink}
+                              />
+                              <View>
+                                <Text
+                                  style={[
+                                    styles.handheldToggleText,
+                                    prioritizeHandheld && { color: C.paper },
+                                  ]}
+                                >
+                                  1/F HANDHELD PRIORITY: {prioritizeHandheld ? 'ON (AVOID CAMERA SHAKE)' : 'OFF'}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.handheldToggleSub,
+                                    prioritizeHandheld && { color: C.paperDark },
+                                  ]}
+                                >
+                                  {prioritizeHandheld
+                                    ? `Keeping shutter ≥ 1/${Math.max(30, lens.focalLength, get35mmEquivalentFocalLength(camera, lens))}s for ${lens.focalLength}mm lens`
+                                    : `Tap to keep shutter ≥ 1/${Math.max(30, lens.focalLength, get35mmEquivalentFocalLength(camera, lens))}s for sharp handheld shots`}
+                                </Text>
+                              </View>
+                            </View>
+                          </Pressable>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* UX #3: Live Viewfinder Hero Strip above the 2-Column Mobile Scene Grid */}
+                    {(() => {
+                      const heroRec = recommend(
+                        iso,
+                        activeCondition,
+                        camera,
+                        lens,
+                        totalPositiveStops,
+                        activeGritty.evShiftStops,
+                        validPreferredAperture,
+                        prioritizeHandheld,
+                      );
+                      const heroGrit =
+                        activeGritty.id === 'kinetic' && validPreferredAperture === undefined
+                          ? recommendGritty(iso, activeCondition, camera, lens, totalPositiveStops, activeGritty)
+                          : null;
+                      const heroBest = heroGrit?.dragSetting ?? heroRec.best;
+                      const heroShake = heroBest
+                        ? evaluateHandheldSafety(heroBest.shutter, camera, lens)
+                        : null;
+                      return (
+                        <View style={styles.viewfinderHeroStrip} nativeID="viewfinder-hero-strip">
+                          <View style={styles.viewfinderSceneCol}>
+                            <Text style={styles.viewfinderKicker}>
+                              SELECTED LIGHTING SCENE · TAP ANY WEATHER CARD BELOW TO CHANGE
+                            </Text>
+                            <Text
+                              style={styles.viewfinderSceneTitle}
+                              accessibilityRole="header"
+                              aria-level={3}
+                            >
+                              {activeCondition.title.toUpperCase()}
+                            </Text>
+                            <Text style={styles.viewfinderSceneSub} numberOfLines={1}>
+                              {activeCondition.hint}
+                            </Text>
+                          </View>
+                          {heroBest ? (
+                            <View style={styles.viewfinderDialsRow}>
+                              <View
+                                style={styles.viewfinderDialBox}
+                                aria-label={`Recommended aperture: ${formatAperture(heroBest.aperture)}`}
+                              >
+                                <Text style={styles.viewfinderDialLabel}>SET APERTURE</Text>
+                                <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
+                                  {formatAperture(heroBest.aperture)}
+                                </Text>
+                              </View>
+                              <View
+                                style={[styles.viewfinderDialBox, { backgroundColor: C.orange }]}
+                                aria-label={`Recommended shutter speed: ${formatShutter(heroBest.shutter)}`}
+                              >
+                                <Text style={styles.viewfinderDialLabel}>SET SHUTTER</Text>
+                                <Text style={[styles.viewfinderDialVal, compact && { fontSize: 28 }]}>
+                                  {formatShutter(heroBest.shutter)}
+                                </Text>
+                              </View>
+                              {heroShake && (
                                 <View
                                   style={[
-                                    styles.cellShakeBadge,
-                                    shake.status === 'safe'
+                                    styles.viewfinderShakePill,
+                                    heroShake.status === 'safe'
                                       ? { backgroundColor: C.teal }
-                                      : shake.status === 'borderline'
-                                        ? { backgroundColor: C.brown }
+                                      : heroShake.status === 'borderline'
+                                        ? { backgroundColor: C.mustard }
                                         : { backgroundColor: C.orange },
                                   ]}
                                 >
-                                  <Text style={styles.cellShakeText}>
-                                    {shake.status === 'safe'
-                                      ? '✓'
-                                      : shake.status === 'borderline'
-                                        ? '⚠'
-                                        : '▲'}
-                                  </Text>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <HandSvgIcon
+                                      size={13}
+                                      color={heroShake.status === 'borderline' ? C.ink : C.paper}
+                                    />
+                                    <Text
+                                      style={[
+                                        styles.viewfinderShakeText,
+                                        heroShake.status === 'borderline' && { color: C.ink },
+                                      ]}
+                                    >
+                                      {heroShake.status === 'safe'
+                                        ? 'HANDHELD SAFE'
+                                        : heroShake.status === 'borderline'
+                                          ? 'BRACE HANDS'
+                                          : 'USE TRIPOD'}
+                                    </Text>
+                                  </View>
                                 </View>
                               )}
                             </View>
                           ) : null}
                         </View>
-                      </Pressable>
-                    );
-                  })}
-              </View>
+                      );
+                    })()}
 
-              <Result iso={iso} conditionId={conditionId} />
-            </View>
-          </>
-        )}
+                    {/* UX #6: 2-Column Mobile Grid (50%) / 3-Column Desktop Grid (33.333%) */}
+                    <View style={[styles.grid, { flexDirection: 'row', flexWrap: 'wrap' }]}>
+                      {conditions
+                        .filter((cond) => sceneCategory === 'all' || cond.category === sceneCategory)
+                        .map((cond) => {
+                          const r = recommend(
+                            iso,
+                            cond,
+                            camera,
+                            lens,
+                            totalPositiveStops,
+                            activeGritty.evShiftStops,
+                            validPreferredAperture,
+                            prioritizeHandheld,
+                          );
+                          const gr =
+                            activeGritty.id === 'kinetic' && validPreferredAperture === undefined
+                              ? recommendGritty(iso, cond, camera, lens, totalPositiveStops, activeGritty)
+                              : null;
+                          const cellBest = gr?.dragSetting ?? r.best;
+                          const active = cond.id === conditionId;
+                          const shake = cellBest
+                            ? evaluateHandheldSafety(cellBest.shutter, camera, lens)
+                            : null;
+                          return (
+                            <Pressable
+                              key={cond.id}
+                              nativeID={`condition-${cond.id}`}
+                              accessibilityRole="button"
+                              aria-label={`${cond.title} (${cond.hint})${cellBest ? `: ${formatAperture(cellBest.aperture)} at ${formatShutter(cellBest.shutter)}` : ''}`}
+                              onPress={() => setConditionId(cond.id)}
+                              style={[
+                                styles.cell,
+                                { width: wide ? '33.333%' : '50%' },
+                                compact && { padding: 8, gap: 8 },
+                                cond.category === 'lowlight' && !active && styles.cellLowLight,
+                                active && styles.cellActive,
+                              ]}
+                            >
+                              <View style={[styles.iconBox, compact && { width: 36, height: 36 }]}>
+                                <WeatherIcon id={cond.id} size={compact ? 32 : 44} />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <View style={styles.condTitleRow}>
+                                  <Text style={[styles.condTitle, compact && { fontSize: 17 }]}>
+                                    {cond.title}
+                                  </Text>
+                                  {cond.category === 'lowlight' && (
+                                    <View style={styles.lowLightTag}>
+                                      <Text style={styles.lowLightTagText}>LOW</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                {!compact && <Text style={styles.condHint}>{cond.hint}</Text>}
+                                {cellBest ? (
+                                  <View style={styles.condValueRow}>
+                                    <Text style={[styles.condValue, compact && { fontSize: 14 }]}>
+                                      {formatAperture(cellBest.aperture)} · {formatShutter(cellBest.shutter)}
+                                    </Text>
+                                    {shake && (
+                                      <View
+                                        style={[
+                                          styles.cellShakeBadge,
+                                          shake.status === 'safe'
+                                            ? { backgroundColor: C.teal }
+                                            : shake.status === 'borderline'
+                                              ? { backgroundColor: C.brown }
+                                              : { backgroundColor: C.orange },
+                                        ]}
+                                      >
+                                        <Text style={styles.cellShakeText}>
+                                          {shake.status === 'safe'
+                                            ? '✓'
+                                            : shake.status === 'borderline'
+                                              ? '⚠'
+                                              : '▲'}
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </View>
+                                ) : null}
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                    </View>
+
+                    <Result iso={iso} conditionId={conditionId} />
+                  </View>
+                </>
+              )}
 
               {/* AdSense Slot 1: Placed safely below the interactive calculator (Zero CLS) */}
               <AdSenseSlot
@@ -2952,7 +2951,7 @@ export default function App() {
                       {formatAperture(bestDisplay.aperture)} · {formatShutter(bestDisplay.shutter)} is{' '}
                       {formatError(bestDisplay.errorStops)} from ideal —{' '}
                       {bestDisplay.errorStops <= (activeFilmStock?.latitudeOverStops ?? 2) &&
-                      bestDisplay.errorStops >= -(activeFilmStock?.latitudeUnderStops ?? 1)
+                        bestDisplay.errorStops >= -(activeFilmStock?.latitudeUnderStops ?? 1)
                         ? '✓ SAFELY WITHIN THIS FILM’S LATITUDE WINDOW.'
                         : '⚠ OUTSIDE SAFE LATITUDE — ADJUST APERTURE/SHUTTER OR ADD AN ND/CPL FILTER.'}
                     </Text>
@@ -2971,8 +2970,8 @@ export default function App() {
                     {activeFilmStock?.process === 'E-6 Slide'
                       ? 'Slide reversal film has almost zero highlight tolerance (±0.5 EV). Meter for the brightest lit highlights and never overexpose.'
                       : activeFilmStock?.process.includes('B&W')
-                      ? 'Expose for the shadows and develop for the highlights. Pair with Yellow (#8), Orange (#16), or Red (#25) filters in the Filter tab to separate clouds and skin tones.'
-                      : 'Color negative film loves light in the shadows: erring +1 stop over (+1 EV) yields richer colors and finer grain than underexposing.'}
+                        ? 'Expose for the shadows and develop for the highlights. Pair with Yellow (#8), Orange (#16), or Red (#25) filters in the Filter tab to separate clouds and skin tones.'
+                        : 'Color negative film loves light in the shadows: erring +1 stop over (+1 EV) yields richer colors and finer grain than underexposing.'}
                   </Text>
 
                   <Text style={[styles.grittyLabNote, { marginTop: 6, fontSize: 11 }]}>
@@ -2993,8 +2992,14 @@ export default function App() {
   }
 }
 
-const display = 'BebasNeue_400Regular';
-const type = 'SpecialElite_400Regular';
+const display = Platform.select({
+  web: "'Bebas Neue', BebasNeue_400Regular, Impact, 'Arial Narrow', sans-serif",
+  default: 'BebasNeue_400Regular',
+});
+const type = Platform.select({
+  web: "'Special Elite', SpecialElite_400Regular, 'Courier New', monospace",
+  default: 'SpecialElite_400Regular',
+});
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paperDark },

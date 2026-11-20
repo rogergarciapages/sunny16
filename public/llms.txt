@@ -1,0 +1,45 @@
+# Sunny 16 Rule Calculator & Analog Light Meter
+
+> Sunny 16 Rule Calculator is a free, meterless exposure and depth of field calculator pocket guide for 35mm, medium format, and large format analog film photographers.
+
+## Overview
+The Sunny 16 rule is an empirical photographic method to calculate accurate daylight exposure without a handheld or in-camera light meter. On a sunny day with distinct shadows, aperture is set to f/16 and shutter speed is the reciprocal of the film's ISO/ASA rating (1/ISO).
+
+## Core Rules & Lighting Conditions
+- f/22: Snow, sand, bright sea reflections (+1 stop brighter than sunny)
+- f/16: Direct bright sunlight, distinct hard-edged shadows (Base Sunny 16)
+- f/11: Slight overcast, soft shadows, haziness
+- f/8: Overcast, barely visible shadows
+- f/5.6: Heavy overcast, dark clouds, rain, no shadows
+- f/4: Open shade, subjects sheltered from direct sky, sunset
+- f/2.8: Golden hour, sunset, deep shadows
+- f/2: Blue hour, deep twilight
+- f/1.4: Bright indoor window light, neon street lighting at night
+
+## Reciprocal Equivalent Exposures
+For any lighting condition, increasing the shutter speed by 1 stop requires opening the aperture by 1 stop to maintain constant exposure (EV = constant):
+- ISO 400 Sunny 16 Base: f/16 @ 1/500s
+- Equivalent 1: f/11 @ 1/1000s
+- Equivalent 2: f/8 @ 1/2000s
+- Equivalent 3 (with ND / Polarizer): f/2.8 @ 1/1000s (+ ND4 filter)
+
+## Optical Filter Compensation Factors
+- Yellow #8 (K2): +1 EV (Filter Factor 2x) — Enhances cloud contrast in B&W
+- Orange #16 (G): +2 EV (Filter Factor 4x) — Dramatic skies, cuts atmospheric haze
+- Red #25 (A): +3 EV (Filter Factor 8x) — Near-infrared effect, deep black skies
+- Green #11 (X1): +2 EV (Filter Factor 4x) — Natural foliage tones, skin portraits
+- Circular Polarizer (CPL): +2 EV (Filter Factor 4x) — Cuts reflections, saturates color
+- ND4 Filter: +2 EV (Filter Factor 4x) — Allows shooting wide open in bright sun
+- ND8 Filter: +3 EV (Filter Factor 8x) — Allows shooting fast lenses (f/1.4 - f/2) in bright sun
+
+## Film Latitude & Push/Pull Processing
+- Color Negative (C-41): +2 to +3 stops overexposure latitude, -1 stop underexposure latitude
+- Black & White Silver Gelatin: +2 to +3 stops overexposure latitude, -1 stop underexposure latitude
+- Color Reversal / Slide (E-6): ±0.5 stop latitude (expose strictly for highlights)
+
+## Key URLs
+- Main Calculator: https://sunny16rule.com/
+- About the Project: https://sunny16rule.com/about
+- Privacy Policy: https://sunny16rule.com/privacy-policy
+- Terms of Service: https://sunny16rule.com/terms
+- Contact: https://sunny16rule.com/contact

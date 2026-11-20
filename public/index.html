@@ -2,7 +2,6 @@
 <html lang="en">
   <head>
     <!-- Google Tag (gtag.js) / Google Tag Manager (GTM-TBXKFXTZ) with Consent Mode v2 -->
-    <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-TBXKFXTZ"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -14,6 +13,27 @@
         wait_for_update: 500
       });
       gtag('js', new Date());
+
+      // Defer GTM script until after critical rendering / idle
+      function loadGTM() {
+        if (window.__gtmLoaded) return;
+        window.__gtmLoaded = true;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-TBXKFXTZ';
+        document.head.appendChild(s);
+      }
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(function() {
+          if (document.readyState === 'complete') {
+            loadGTM();
+          } else {
+            window.addEventListener('load', loadGTM, { once: true });
+          }
+        }, { timeout: 2500 });
+      } else {
+        window.addEventListener('load', loadGTM, { once: true });
+      }
     </script>
 
     <meta charset="utf-8" />
@@ -79,9 +99,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link
-      rel="stylesheet"
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Special+Elite&display=swap"
     />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Special+Elite&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Special+Elite&display=swap"
+      />
+    </noscript>
 
     <!-- PASTE GOOGLE ADSENSE SCRIPT BELOW ONCE APPROVED (replace ca-pub-XXXXXXXXXXXXXXXX):
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
@@ -171,6 +204,20 @@
     </script>
 
     <style id="expo-reset">
+      @font-face {
+        font-family: 'BebasNeue_400Regular';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: local('Bebas Neue'), local('BebasNeue');
+      }
+      @font-face {
+        font-family: 'SpecialElite_400Regular';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: local('Special Elite'), local('SpecialElite');
+      }
       html,
       body {
         height: 100%;
