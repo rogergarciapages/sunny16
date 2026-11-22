@@ -1,0 +1,43 @@
+{
+  "name": "Sunny 16 Rule Calculator",
+  "description": "Calculate accurate daylight camera settings, shutter speed reciprocity, optical filter compensation, and depth of field without a light meter.",
+  "url": "https://sunny16rule.com",
+  "version": "1.0.0",
+  "capabilities": {
+    "tools": [
+      {
+        "name": "calculateExposure",
+        "description": "Calculates daylight aperture and shutter speed based on ISO and lighting condition",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "iso": {
+              "type": "number",
+              "description": "Film ISO/ASA (e.g. 100, 400, 800)"
+            },
+            "condition": {
+              "type": "string",
+              "enum": [
+                "snow_sand",
+                "sunny",
+                "slight_overcast",
+                "overcast",
+                "heavy_overcast",
+                "open_shade",
+                "golden_hour",
+                "blue_hour",
+                "indoor_night"
+              ]
+            },
+            "filters": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Optional optical filters (e.g. yellow, cpl, nd4)"
+            }
+          },
+          "required": ["iso", "condition"]
+        }
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!assets/|_expo/|\\.well-known/|about|contact|privacy-policy|terms|robots\\.txt|sitemap\\.xml|llms\\.txt|ai-catalog\\.json|ard\\.json|banner\\.jpg|sunny16-banner\\.jpg|favicon|apple-touch-icon|icon|og-preview|.*\\..*).*)",
+      "source": "/((?!assets/|_expo/|\\.well-known/|about|contact|privacy-policy|terms|robots\\.txt|sitemap\\.xml|llms\\.txt|ai-catalog\\.json|ard\\.json|agent-card\\.json|banner\\.jpg|sunny16-banner\\.jpg|favicon|apple-touch-icon|icon|og-preview|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],
@@ -100,11 +100,15 @@
       "headers": [
         {
           "key": "Content-Type",
-          "value": "text/plain; charset=utf-8"
+          "value": "text/markdown; charset=utf-8"
         },
         {
           "key": "Cache-Control",
           "value": "public, max-age=86400, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
         }
       ]
     },
@@ -144,6 +148,23 @@
     },
     {
       "source": "/ard.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/agent-card.json",
       "headers": [
         {
           "key": "Content-Type",

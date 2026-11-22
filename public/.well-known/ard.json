@@ -1,10 +1,16 @@
 {
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Sunny 16 Rule Calculator",
+    "documentationUrl": "https://sunny16rule.com/llms.txt",
+    "logoUrl": "https://sunny16rule.com/icon.png"
+  },
   "entries": [
     {
-      "identifier": "sunny16-exposure-calculator",
-      "displayName": "Sunny 16 Rule Exposure & Depth of Field Calculator",
-      "type": "text/html",
-      "url": "https://sunny16rule.com/",
+      "identifier": "urn:air:sunny16rule.com:photography:sunny16-skills",
+      "displayName": "Sunny 16 Rule Exposure & Depth of Field Skills",
+      "type": "application/agent-skills+md",
+      "url": "https://sunny16rule.com/llms.txt",
       "description": "Calculate accurate daylight camera settings, shutter speed reciprocity, optical filter compensation, and depth of field without a light meter.",
       "capabilities": [
         "Sunny16ExposureCalculator",
@@ -26,6 +32,30 @@
         "sunny16",
         "camera",
         "light-meter"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "identifier": "urn:air:sunny16rule.com:photography:sunny16-agent-card",
+      "displayName": "Sunny 16 Rule Calculator Agent Card",
+      "type": "application/agent-card+json",
+      "url": "https://sunny16rule.com/.well-known/agent-card.json",
+      "description": "Agent card providing machine-readable tools for daylight film exposure, depth of field, and optical filter calculations.",
+      "capabilities": [
+        "calculateExposure",
+        "calculateDepthOfField",
+        "calculateFilterFactor"
+      ],
+      "representativeQueries": [
+        "Sunny 16 rule calculator",
+        "analog photography light meter",
+        "film camera exposure calculation"
+      ],
+      "tags": [
+        "photography",
+        "analog",
+        "calculator",
+        "tools"
       ],
       "version": "1.0.0"
     }
