@@ -1,0 +1,33 @@
+{
+  "entries": [
+    {
+      "identifier": "sunny16-exposure-calculator",
+      "displayName": "Sunny 16 Rule Exposure & Depth of Field Calculator",
+      "type": "text/html",
+      "url": "https://sunny16rule.com/",
+      "description": "Calculate accurate daylight camera settings, shutter speed reciprocity, optical filter compensation, and depth of field without a light meter.",
+      "capabilities": [
+        "Sunny16ExposureCalculator",
+        "DepthOfFieldCalculator",
+        "FilterFactorCalculator",
+        "FilmLatitudeCalculator"
+      ],
+      "representativeQueries": [
+        "Sunny 16 rule calculator",
+        "meterless 35mm film exposure",
+        "shutter speed for ISO 400 sunny day",
+        "lens filter exposure compensation factor",
+        "depth of field calculator 35mm"
+      ],
+      "tags": [
+        "photography",
+        "analog",
+        "film",
+        "sunny16",
+        "camera",
+        "light-meter"
+      ],
+      "version": "1.0.0"
+    }
+  ]
+}

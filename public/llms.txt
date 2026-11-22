@@ -2,8 +2,12 @@
 
 > Sunny 16 Rule Calculator is a free, meterless exposure and depth of field calculator pocket guide for 35mm, medium format, and large format analog film photographers.
 
-## Overview
-The Sunny 16 rule is an empirical photographic method to calculate accurate daylight exposure without a handheld or in-camera light meter. On a sunny day with distinct shadows, aperture is set to f/16 and shutter speed is the reciprocal of the film's ISO/ASA rating (1/ISO).
+## Documentation & Key Resources
+- [Sunny 16 Rule Calculator](https://sunny16rule.com/): Free meterless daylight exposure calculator, shutter speed reciprocity table, and depth of field calculator.
+- [About the Project & Field Guide](https://sunny16rule.com/about): Complete vintage 35mm photography manual, optical filter factors, push/pull film latitude guide, and hyperfocal distance calculations.
+- [Contact & Feedback](https://sunny16rule.com/contact): Get in touch with the creator, suggest camera bodies or film stocks, and report issues.
+- [Privacy Policy](https://sunny16rule.com/privacy-policy): GDPR & CCPA privacy policy, cookies, and analytics disclosure.
+- [Terms of Service](https://sunny16rule.com/terms): Terms of use for the calculator application.
 
 ## Core Rules & Lighting Conditions
 - f/22: Snow, sand, bright sea reflections (+1 stop brighter than sunny)
@@ -36,10 +40,3 @@ For any lighting condition, increasing the shutter speed by 1 stop requires open
 - Color Negative (C-41): +2 to +3 stops overexposure latitude, -1 stop underexposure latitude
 - Black & White Silver Gelatin: +2 to +3 stops overexposure latitude, -1 stop underexposure latitude
 - Color Reversal / Slide (E-6): ±0.5 stop latitude (expose strictly for highlights)
-
-## Key URLs
-- Main Calculator: https://sunny16rule.com/
-- About the Project: https://sunny16rule.com/about
-- Privacy Policy: https://sunny16rule.com/privacy-policy
-- Terms of Service: https://sunny16rule.com/terms
-- Contact: https://sunny16rule.com/contact
